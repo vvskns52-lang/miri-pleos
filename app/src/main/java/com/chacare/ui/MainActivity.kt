@@ -17,6 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chacare.domain.Brand
@@ -46,6 +49,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private const val UI_SCALE = 1.3f
+private const val FONT_SCALE = 1.15f
+
 private sealed interface Screen {
     data object Dashboard : Screen
     data class Detail(val part: Part) : Screen
@@ -61,11 +67,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val graph = (application as ChaCareApp).graph
         setContent {
-            MaterialTheme(colorScheme = ChaCareColors) {
-                // Surface가 글자색(onBackground)을 정해 준다. Box만 쓰면 글자가 검은색이 된다.
-                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    PermissionsThenStart { MaintenanceService.start(this@MainActivity) }
-                    App(graph)
+            // Pleos 화면은 밀도 1.0(1dp = 1px)이라 그대로면 모든 요소가 작다. 팔 길이 거리에서 읽히도록
+            // 화면 전체를 키우고, 글자는 한 번 더 키운다.
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides Density(density.density * UI_SCALE, density.fontScale * FONT_SCALE),
+            ) {
+                MaterialTheme(colorScheme = ChaCareColors) {
+                    // Surface가 글자색(onBackground)을 정해 준다. Box만 쓰면 글자가 검은색이 된다.
+                    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                        PermissionsThenStart { MaintenanceService.start(this@MainActivity) }
+                        App(graph)
+                    }
                 }
             }
         }

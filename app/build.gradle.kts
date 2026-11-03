@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -18,11 +20,26 @@ android {
 
     useLibrary("android.car")
 
+    // 서명 키와 비밀번호는 저장소 밖(~/keys)에 둔다. 파일이 없으면 서명 없는 release가 만들어진다.
+    val signingFile = File(System.getProperty("user.home"), "keys/chacare-signing.properties")
+    signingConfigs {
+        if (signingFile.exists()) {
+            val p = Properties().apply { signingFile.inputStream().use { load(it) } }
+            create("release") {
+                storeFile = File(p.getProperty("storeFile"))
+                storePassword = p.getProperty("storePassword")
+                keyAlias = p.getProperty("keyAlias")
+                keyPassword = p.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
             optimization {
                 enable = false
             }
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {

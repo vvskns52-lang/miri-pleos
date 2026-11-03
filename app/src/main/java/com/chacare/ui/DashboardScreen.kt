@@ -91,7 +91,7 @@ fun DashboardScreen(
         }
         Spacer(Modifier.height(24.dp))
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 480.dp),
+            columns = GridCells.Adaptive(minSize = 400.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
