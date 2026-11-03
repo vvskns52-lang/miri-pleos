@@ -92,6 +92,14 @@ fun PartImage(part: Part, size: Dp, modifier: Modifier = Modifier) {
     )
 }
 
+/** 직접 추가한 부품에 쓰는 공용 이미지. */
+val R_CUSTOM = R.drawable.part_custom
+
+@Composable
+fun PartImageRes(@DrawableRes res: Int, sizeDp: Int) {
+    Image(painterResource(res), contentDescription = null, modifier = Modifier.size(sizeDp.dp), contentScale = ContentScale.Fit)
+}
+
 /** 흰 카드: 얇은 테두리로만 구분한다. */
 fun Modifier.card(radius: Dp = 24.dp): Modifier =
     clip(RoundedCornerShape(radius)).background(Color.White).border(1.dp, Divider, RoundedCornerShape(radius))

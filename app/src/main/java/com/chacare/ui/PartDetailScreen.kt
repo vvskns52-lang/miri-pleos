@@ -24,10 +24,14 @@ import androidx.compose.ui.unit.sp
 import com.chacare.data.RecordType
 import com.chacare.data.ServiceRecord
 import com.chacare.domain.LifeEstimate
+import com.chacare.domain.PartSpec
+import com.chacare.domain.description
+import com.chacare.domain.intervalSource
 
 @Composable
 fun PartDetailScreen(
     estimate: LifeEstimate,
+    spec: PartSpec?,
     records: List<ServiceRecord>,
     factor: Double,
     parked: Boolean,
@@ -51,6 +55,16 @@ fun PartDetailScreen(
                 StatusPill(estimate.status)
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
+                Text(estimate.part.description, fontSize = 19.sp, color = TextPrimary, lineHeight = 28.sp)
+                Spacer(Modifier.height(12.dp))
+                if (spec != null) {
+                    Text(
+                        "권장 교환 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}",
+                        fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary,
+                    )
+                    Text(intervalSource(estimate.part), fontSize = 16.sp, color = TextSecondary)
+                }
+                Spacer(Modifier.height(24.dp))
                 Text("남은 수명", fontSize = 18.sp, color = TextSecondary)
                 Spacer(Modifier.height(8.dp))
                 Text(remainingText(estimate), fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)

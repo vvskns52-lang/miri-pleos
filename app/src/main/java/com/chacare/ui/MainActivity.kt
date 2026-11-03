@@ -7,10 +7,20 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.chacare.domain.Brand
+import com.chacare.domain.VehicleModel
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -41,6 +51,9 @@ private sealed interface Screen {
     data class Detail(val part: Part) : Screen
     data class Edit(val part: Part) : Screen
     data object Demo : Screen
+    data object Vehicle : Screen
+    data object CustomAdd : Screen
+    data class CustomDetail(val id: Long) : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -78,39 +91,69 @@ private fun App(graph: AppGraph) {
     val repo = graph.repo
     val scope = rememberCoroutineScope()
     val estimates by remember { repo.estimates() }.collectAsState(initial = emptyList())
+    val customs by remember { repo.customEstimates() }.collectAsState(initial = emptyList())
+    val vehicle by repo.vehicle.collectAsState(initial = null)
     val odometer by repo.odometer.collectAsState(initial = null)
     val demoMode by repo.demoMode.collectAsState(initial = false)
     val parked by graph.parked.collectAsState()
     var onboarded by remember { mutableStateOf<Boolean?>(null) }
-    var knownPowertrain by remember { mutableStateOf<Powertrain?>(null) }
     var screen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
-    LaunchedEffect(Unit) {
-        knownPowertrain = repo.powertrain()
-        onboarded = repo.onboarded()
-    }
+    LaunchedEffect(Unit) { onboarded = repo.onboarded() }
 
     Column(Modifier.fillMaxSize()) {
         if (!parked && screen != Screen.Demo) DrivingBanner()
         when (onboarded) {
             null -> Unit
-            false -> OnboardingScreen(knownPowertrain) { pt, kmAgo ->
+            false -> OnboardingScreen { model, pt, kmAgo ->
                 scope.launch {
-                    finishOnboarding(graph, pt, kmAgo)
+                    finishOnboarding(graph, model, pt, kmAgo)
                     onboarded = true
                 }
             }
             true -> when (val s = screen) {
                 Screen.Dashboard -> DashboardScreen(
-                    estimates, odometer, parked,
+                    estimates, customs, vehicle, odometer, parked,
                     onOpen = { screen = Screen.Detail(it) },
+                    onOpenCustom = { screen = Screen.CustomDetail(it) },
+                    onAddCustom = { screen = Screen.CustomAdd },
+                    onChangeVehicle = { screen = Screen.Vehicle },
                     onSecretTap = { screen = Screen.Demo },
                 )
                 is Screen.Detail -> {
                     val records by remember(s.part) { repo.records(s.part) }.collectAsState(initial = emptyList())
                     val factor by remember(s.part) { repo.factor(s.part) }.collectAsState(initial = 1.0)
+                    val spec by remember(s.part) { repo.spec(s.part) }.collectAsState(initial = null)
                     estimates.firstOrNull { it.part == s.part }?.let { e ->
-                        PartDetailScreen(e, records, factor, parked, onBack = { screen = Screen.Dashboard }, onEdit = { screen = Screen.Edit(s.part) })
+                        PartDetailScreen(e, spec, records, factor, parked, onBack = { screen = Screen.Dashboard }, onEdit = { screen = Screen.Edit(s.part) })
+                    }
+                }
+                Screen.Vehicle -> VehicleChangeScreen(
+                    current = vehicle, parked = parked,
+                    onCancel = { screen = Screen.Dashboard },
+                    onSave = { model, pt -> scope.launch { repo.setVehicle(model?.id, pt); screen = Screen.Dashboard } },
+                )
+                Screen.CustomAdd -> CustomAddScreen(
+                    odometer ?: 0.0, graph.today(), parked,
+                    onBack = { screen = Screen.Dashboard },
+                    onSave = { n ->
+                        scope.launch {
+                            val id = repo.addCustomPart(n.name, n.intervalKm, n.intervalMonths)
+                            if (n.lastDate != null) repo.addCustomRecord(id, n.lastDate, n.lastKm ?: 0.0, n.memo)
+                            screen = Screen.CustomDetail(id)
+                        }
+                    },
+                )
+                is Screen.CustomDetail -> {
+                    val records by remember(s.id) { repo.customRecords(s.id) }.collectAsState(initial = emptyList())
+                    customs.firstOrNull { it.part.id == s.id }?.let { c ->
+                        CustomDetailScreen(
+                            c, records, odometer ?: 0.0, graph.today(), parked,
+                            onBack = { screen = Screen.Dashboard },
+                            onAddRecord = { d, km, memo -> scope.launch { repo.addCustomRecord(s.id, d, km, memo) } },
+                            onDeleteRecord = { id -> scope.launch { repo.deleteCustomRecord(id) } },
+                            onDeletePart = { scope.launch { repo.deleteCustomPart(s.id); screen = Screen.Dashboard } },
+                        )
                     }
                 }
                 is Screen.Edit -> {
@@ -128,9 +171,35 @@ private fun App(graph: AppGraph) {
     }
 }
 
-private suspend fun finishOnboarding(graph: AppGraph, powertrain: Powertrain, kmAgo: Map<Part, Int?>) {
+/** 차종을 다시 고르면 교환 주기만 바뀌고 교체 기록은 그대로 남는다. */
+@Composable
+private fun VehicleChangeScreen(
+    current: Pair<VehicleModel?, Powertrain>?,
+    parked: Boolean,
+    onCancel: () -> Unit,
+    onSave: (VehicleModel?, Powertrain) -> Unit,
+) {
+    var choice by remember(current) {
+        mutableStateOf(
+            current?.let { (m, p) -> VehicleChoice(brand = m?.brand ?: Brand.HYUNDAI, model = m, other = m == null, powertrain = p) }
+                ?: VehicleChoice(),
+        )
+    }
+    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
+        Column(Modifier.weight(1f)) { VehicleSelect(choice) { choice = it } }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = onCancel) { Text("취소", fontSize = 18.sp) }
+            Button(
+                onClick = { choice.powertrain?.let { onSave(choice.model, it) } },
+                enabled = parked && choice.complete,
+            ) { Text("저장", fontSize = 20.sp) }
+        }
+    }
+}
+
+private suspend fun finishOnboarding(graph: AppGraph, model: VehicleModel?, powertrain: Powertrain, kmAgo: Map<Part, Int?>) {
     val repo = graph.repo
-    repo.setPowertrain(powertrain)
+    repo.setVehicle(model?.id, powertrain)
     val odo = repo.lastOdometer() ?: 0.0
     val today = graph.today()
     for ((part, km) in kmAgo) {
