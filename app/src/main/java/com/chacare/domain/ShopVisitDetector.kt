@@ -1,5 +1,6 @@
 package com.chacare.domain
 
+import kotlinx.serialization.Serializable
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.pow
@@ -9,8 +10,10 @@ import kotlin.math.sqrt
 data class Shop(val id: String, val name: String, val lat: Double, val lon: Double)
 
 /** 재시작(시동 off/on)을 견디도록 저장소에 그대로 저장한다. */
+@Serializable
 data class DwellState(val shopId: String, val enteredAtMillis: Long, val lastSeenMillis: Long, val emitted: Boolean)
 
+@Serializable
 data class ShopVisit(val shopId: String, val enteredAtMillis: Long)
 
 private const val EARTH_RADIUS_M = 6_371_000.0

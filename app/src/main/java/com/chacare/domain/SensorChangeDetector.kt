@@ -1,8 +1,11 @@
 package com.chacare.domain
 
+import kotlinx.serialization.Serializable
+
 /** 경고가 켜졌거나 양이 부족하면 LOW. */
 enum class SignalState { LOW, NORMAL, UNKNOWN }
 
+@Serializable
 data class PendingConfirmation(val part: Part, val detectedAtMillis: Long, val askCount: Int = 0)
 
 /** 부족 → 정상으로 돌아온 순간. */

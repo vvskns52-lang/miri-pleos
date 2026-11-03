@@ -1,6 +1,9 @@
 package com.chacare.domain
 
+import kotlinx.serialization.Serializable
+
 /** 마지막 교체 이후 누적된 운행 기록. */
+@Serializable
 data class UsageStats(
     val drivenKm: Double = 0.0,
     val drivingMinutes: Double = 0.0,

@@ -1,5 +1,8 @@
 package com.chacare.domain
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class AlertRecord(val part: Part, val atMillis: Long, val odometerKm: Double)
 
 private const val REPEAT_AFTER_MILLIS = 7 * 86_400_000L
