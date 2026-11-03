@@ -22,6 +22,12 @@ val DEFAULT_SPECS: List<PartSpec> = listOf(
     PartSpec(Part.WIPER_BLADE, null, 12, null, ALL),
     PartSpec(Part.WASHER_FLUID, null, null, SensorKind.WASHER_WARNING, ALL),
     PartSpec(Part.TIRE, 50_000, null, SensorKind.TIRE_PRESSURE_WARNING, ALL),
+    PartSpec(Part.SPARK_PLUG, 100_000, null, null, ICE_ONLY),
+    PartSpec(Part.ENGINE_AIR_FILTER, 40_000, null, null, ICE_ONLY),
+    // 최초 10년/20만km 이후 2년/4만km가 일반적이지만, 이력을 모르는 경우가 많아 보수적으로 잡는다.
+    PartSpec(Part.COOLANT, 40_000, 24, null, ALL),
+    PartSpec(Part.BATTERY, null, 48, null, ALL),
+    PartSpec(Part.DRIVE_BELT, 80_000, null, null, ICE_ONLY),
 )
 
 fun specsFor(powertrain: Powertrain): List<PartSpec> =

@@ -89,9 +89,9 @@ class MaintenanceRepositoryTest {
         assertEquals(LifeStatus.GOOD, list.last().status)
     }
 
-    @Test fun evHasSixParts() = runTest {
+    @Test fun evHasEightParts() = runTest {
         repo.setPowertrain(Powertrain.EV)
-        assertEquals(6, repo.estimates().first().size)
+        assertEquals(8, repo.estimates().first().size)
     }
 
     @Test fun onboardingFlags() = runTest {

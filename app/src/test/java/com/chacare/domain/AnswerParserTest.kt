@@ -21,4 +21,12 @@ class AnswerParserTest {
         assertEquals(emptySet<Part>(), parseParts("아무것도 안 했어"))
         assertEquals(emptySet<Part>(), parseParts(null))
     }
+
+    @Test fun addedParts() {
+        assertEquals(setOf(Part.CABIN_FILTER, Part.ENGINE_AIR_FILTER), parseParts("에어컨 필터랑 에어필터"))
+        assertEquals(setOf(Part.CABIN_FILTER), parseParts("필터 갈았어"))
+        assertEquals(setOf(Part.ENGINE_AIR_FILTER), parseParts("에어클리너 필터 교체"))
+        assertEquals(setOf(Part.SPARK_PLUG, Part.COOLANT), parseParts("점화플러그랑 부동액"))
+        assertEquals(setOf(Part.BATTERY, Part.DRIVE_BELT), parseParts("배터리하고 벨트"))
+    }
 }

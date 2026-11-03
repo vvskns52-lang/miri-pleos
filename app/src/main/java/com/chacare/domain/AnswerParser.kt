@@ -24,18 +24,29 @@ private val PART_WORDS: List<Pair<Part, List<String>>> = listOf(
     Part.TRANSMISSION_OIL to listOf("미션오일", "변속기"),
     Part.BRAKE_FLUID to listOf("브레이크액", "브레이크오일"),
     Part.BRAKE_PAD to listOf("패드"),
-    Part.CABIN_FILTER to listOf("필터"),
+    Part.CABIN_FILTER to listOf("에어컨필터", "캐빈필터", "실내필터"),
+    Part.ENGINE_AIR_FILTER to listOf("에어필터", "에어클리너", "엔진필터", "공기필터"),
     Part.WIPER_BLADE to listOf("와이퍼"),
     Part.WASHER_FLUID to listOf("워셔"),
     Part.TIRE to listOf("타이어"),
+    Part.SPARK_PLUG to listOf("플러그"),
+    Part.COOLANT to listOf("냉각수", "부동액"),
+    Part.BATTERY to listOf("배터리", "밧데리"),
+    Part.DRIVE_BELT to listOf("벨트"),
     Part.ENGINE_OIL to listOf("엔진오일", "엔진"),
 )
 
-/** 그냥 "오일"은 다른 오일 부품이 언급되지 않았을 때만 엔진오일로 본다. */
+/**
+ * 그냥 "오일"은 다른 오일 부품이 없을 때만 엔진오일로, 그냥 "필터"는 다른 필터가 없을 때만 에어컨 필터로 본다.
+ * "엔진필터"가 엔진오일로 잡히지 않도록 엔진 필터가 있으면 "엔진"만으로는 엔진오일로 보지 않는다.
+ */
 fun parseParts(text: String?): Set<Part> {
     val t = normalize(text)
     val found = PART_WORDS.filter { (_, words) -> words.any { it in t } }.map { it.first }.toMutableSet()
+    if (Part.ENGINE_AIR_FILTER in found && "엔진오일" !in t) found -= Part.ENGINE_OIL
     val otherOil = Part.TRANSMISSION_OIL in found || Part.BRAKE_FLUID in found
     if ("오일" in t && !otherOil) found += Part.ENGINE_OIL
+    val anyFilter = Part.CABIN_FILTER in found || Part.ENGINE_AIR_FILTER in found
+    if ("필터" in t && !anyFilter) found += Part.CABIN_FILTER
     return found
 }

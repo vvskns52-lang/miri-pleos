@@ -27,11 +27,24 @@ class PartSpecsTest {
         assertEquals(SensorKind.TIRE_PRESSURE_WARNING, m[Part.TIRE]!!.sensor)
     }
 
-    @Test fun evHidesOils() {
+    @Test fun addedParts() {
+        val m = DEFAULT_SPECS.associateBy { it.part }
+        assertEquals(100_000, m[Part.SPARK_PLUG]!!.intervalKm)
+        assertEquals(40_000, m[Part.ENGINE_AIR_FILTER]!!.intervalKm)
+        assertEquals(40_000 to 24, m[Part.COOLANT]!!.let { it.intervalKm to it.intervalMonths })
+        assertEquals(null to 48, m[Part.BATTERY]!!.let { it.intervalKm to it.intervalMonths })
+        assertEquals(80_000, m[Part.DRIVE_BELT]!!.intervalKm)
+    }
+
+    @Test fun evHidesEngineParts() {
         val ev = specsFor(Powertrain.EV).map { it.part }
-        assertFalse(Part.ENGINE_OIL in ev)
-        assertFalse(Part.TRANSMISSION_OIL in ev)
+        for (p in listOf(Part.ENGINE_OIL, Part.TRANSMISSION_OIL, Part.SPARK_PLUG, Part.ENGINE_AIR_FILTER, Part.DRIVE_BELT)) {
+            assertFalse(p in ev)
+        }
         assertTrue(Part.BRAKE_PAD in ev)
-        assertEquals(8, specsFor(Powertrain.ICE).size)
+        assertTrue(Part.COOLANT in ev)
+        assertTrue(Part.BATTERY in ev)
+        assertEquals(13, specsFor(Powertrain.ICE).size)
+        assertEquals(8, ev.size)
     }
 }
