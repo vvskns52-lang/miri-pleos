@@ -73,11 +73,11 @@ fun OnboardingScreen(
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(parts) { part ->
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surface)
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth().card(18.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
+                        PartImage(part, 72.dp)
                         Text(part.koreanName, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(160.dp))
                         KM_AGO_OPTIONS.forEach { (label, km) ->
                             FilterChip(

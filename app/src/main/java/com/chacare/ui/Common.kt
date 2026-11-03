@@ -1,35 +1,57 @@
 package com.chacare.ui
 
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.chacare.R
 import com.chacare.data.RecordSource
 import com.chacare.data.RecordType
 import com.chacare.domain.LifeStatus
 import com.chacare.domain.Part
 
-val ChaCareColors = darkColorScheme(
-    primary = Color(0xFF4FC3F7),
-    background = Color(0xFF101418),
-    surface = Color(0xFF1B2127),
-    surfaceVariant = Color(0xFF242C34),
-    onBackground = Color(0xFFE8EAED),
-    onSurface = Color(0xFFE8EAED),
+// Pleos 기본 화면처럼 흰 바탕. 소모품 이미지도 흰 배경이라 카드와 이어져 보인다.
+val TextPrimary = Color(0xFF111418)
+val TextSecondary = Color(0xFF6B7280)
+val Divider = Color(0xFFE9ECEF)
+val Track = Color(0xFFEEF0F3)
+val Accent = Color(0xFF2F6BFF)
+
+val ChaCareColors = lightColorScheme(
+    primary = Accent,
+    onPrimary = Color.White,
+    secondaryContainer = Color(0xFFE8EFFF),
+    onSecondaryContainer = Accent,
+    background = Color.White,
+    onBackground = TextPrimary,
+    surface = Color.White,
+    onSurface = TextPrimary,
+    surfaceVariant = Color(0xFFF5F6F8),
+    onSurfaceVariant = TextSecondary,
+    outline = Divider,
 )
 
-val GoodColor = Color(0xFF66BB6A)
-val CheckColor = Color(0xFFFFA726)
-val ReplaceColor = Color(0xFFEF5350)
-val UnknownColor = Color(0xFF5F6B76)
+val GoodColor = Color(0xFF1F9D63)
+val CheckColor = Color(0xFFE98A00)
+val ReplaceColor = Color(0xFFE5484D)
+val UnknownColor = Color(0xFFB8BEC6)
 
 fun LifeStatus.label() = when (this) {
     LifeStatus.GOOD -> "좋음"
@@ -41,6 +63,41 @@ fun LifeStatus.color() = when (this) {
     LifeStatus.GOOD -> GoodColor
     LifeStatus.CHECK -> CheckColor
     LifeStatus.REPLACE -> ReplaceColor
+}
+
+@DrawableRes
+fun Part.imageRes(): Int = when (this) {
+    Part.ENGINE_OIL -> R.drawable.part_engine_oil
+    Part.BRAKE_FLUID -> R.drawable.part_brake_fluid
+    Part.BRAKE_PAD -> R.drawable.part_brake_pad
+    Part.TRANSMISSION_OIL -> R.drawable.part_transmission_oil
+    Part.CABIN_FILTER -> R.drawable.part_cabin_filter
+    Part.WIPER_BLADE -> R.drawable.part_wiper_blade
+    Part.WASHER_FLUID -> R.drawable.part_washer_fluid
+    Part.TIRE -> R.drawable.part_tire
+}
+
+@Composable
+fun PartImage(part: Part, size: Dp, modifier: Modifier = Modifier) {
+    Image(
+        painterResource(part.imageRes()), contentDescription = part.koreanName,
+        modifier = modifier.size(size),
+        contentScale = ContentScale.Fit,
+    )
+}
+
+/** 흰 카드: 얇은 테두리로만 구분한다. */
+fun Modifier.card(radius: Dp = 24.dp): Modifier =
+    clip(RoundedCornerShape(radius)).background(Color.White).border(1.dp, Divider, RoundedCornerShape(radius))
+
+@Composable
+fun StatusPill(status: LifeStatus) {
+    Text(
+        status.label(),
+        Modifier.clip(RoundedCornerShape(50)).background(status.color().copy(alpha = 0.12f))
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        color = status.color(), fontSize = 17.sp, fontWeight = FontWeight.Bold,
+    )
 }
 
 fun RecordType.label() = when (this) {
@@ -70,12 +127,10 @@ fun factorReason(part: Part, factor: Double): String? = when {
 
 @Composable
 fun DrivingBanner() {
-    Box(
-        Modifier.fillMaxWidth().background(ReplaceColor.copy(alpha = 0.85f)).padding(vertical = 12.dp),
-    ) {
+    Box(Modifier.fillMaxWidth().background(ReplaceColor).padding(vertical = 12.dp)) {
         Text(
             "주행 중에는 조작할 수 없어요",
-            Modifier.padding(horizontal = 24.dp),
+            Modifier.padding(horizontal = 32.dp),
             color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold,
         )
     }

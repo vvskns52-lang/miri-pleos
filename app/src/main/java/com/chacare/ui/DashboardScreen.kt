@@ -12,14 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chacare.domain.LifeEstimate
@@ -47,23 +45,30 @@ fun DashboardScreen(
     onSecretTap: () -> Unit,
 ) {
     var taps by remember { mutableIntStateOf(0) }
-    Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp)) {
+    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                "차케어",
-                Modifier.clickable(enabled = parked) { if (++taps >= 5) { taps = 0; onSecretTap() } },
-                fontSize = 36.sp, fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.width(16.dp))
-            Text(summary(estimates), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), fontSize = 20.sp)
+            Column {
+                Text(
+                    "차케어",
+                    Modifier.clickable(enabled = parked) { if (++taps >= 5) { taps = 0; onSecretTap() } },
+                    fontSize = 34.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(summary(estimates), color = TextSecondary, fontSize = 20.sp)
+            }
             Spacer(Modifier.weight(1f))
-            if (odometerKm != null) Text("누적 %,d km".format(odometerKm.toLong()), fontSize = 18.sp)
+            if (odometerKm != null) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("누적 주행거리", color = TextSecondary, fontSize = 16.sp)
+                    Text("%,d km".format(odometerKm.toLong()), color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 340.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            columns = GridCells.Adaptive(minSize = 480.dp),
+            horizontalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             items(estimates, key = { it.part }) { e -> PartCard(e, enabled = parked) { onOpen(e.part) } }
         }
@@ -82,34 +87,36 @@ private fun summary(estimates: List<LifeEstimate>): String {
 
 @Composable
 private fun PartCard(e: LifeEstimate, enabled: Boolean, onClick: () -> Unit) {
-    Column(
-        Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(24.dp),
+    Row(
+        Modifier.card().clickable(enabled = enabled, onClick = onClick).padding(start = 12.dp, end = 24.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(14.dp).clip(CircleShape).background(e.status.color()))
-            Spacer(Modifier.width(10.dp))
-            Text(e.part.koreanName, fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.weight(1f))
-            Text(e.status.label(), color = e.status.color(), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        PartImage(e.part, 136.dp)
+        Spacer(Modifier.width(16.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    e.part.koreanName, Modifier.weight(1f),
+                    fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                StatusPill(e.status)
+            }
+            Spacer(Modifier.height(16.dp))
+            LifeGauge(e.remainingRatio, e.status)
+            Spacer(Modifier.height(10.dp))
+            Text(remainingText(e), fontSize = 18.sp, color = TextSecondary)
         }
-        Spacer(Modifier.height(16.dp))
-        LifeGauge(e.remainingRatio, e.status)
-        Spacer(Modifier.height(12.dp))
-        Text(remainingText(e), fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f))
     }
 }
 
 @Composable
 fun LifeGauge(ratio: Double?, status: LifeStatus) {
-    Box(Modifier.fillMaxWidth().height(12.dp).clip(RoundedCornerShape(6.dp)).background(UnknownColor.copy(alpha = 0.4f))) {
+    Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(Track)) {
         if (ratio != null) {
             Box(
                 Modifier.fillMaxHeight().fillMaxWidth(ratio.coerceIn(0.0, 1.0).toFloat())
-                    .clip(RoundedCornerShape(6.dp)).background(status.color()),
+                    .clip(RoundedCornerShape(5.dp)).background(status.color()),
             )
         }
     }
