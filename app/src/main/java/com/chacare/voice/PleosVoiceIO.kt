@@ -56,6 +56,17 @@ class PleosVoiceIO(context: Context) : VoiceIO {
     }
 
     init {
+        try {
+            initialize()
+        } catch (e: Exception) {
+            // 권한이 없거나 음성 서비스가 없는 환경: 앱은 계속 돌고 음성만 건너뛴다.
+            Log.w(TAG, "voice unavailable: ${e.message}")
+            ttsReady.complete(false)
+            sttReady.complete(false)
+        }
+    }
+
+    private fun initialize() {
         tts.initialize(object : TtsInit {
             override fun onSuccess() {
                 tts.setLocale(Locale.KOREA)

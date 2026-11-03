@@ -7,11 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,7 +49,8 @@ class MainActivity : ComponentActivity() {
         val graph = (application as ChaCareApp).graph
         setContent {
             MaterialTheme(colorScheme = ChaCareColors) {
-                Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                // Surface가 글자색(onBackground)을 정해 준다. Box만 쓰면 글자가 검은색이 된다.
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     PermissionsThenStart { MaintenanceService.start(this@MainActivity) }
                     App(graph)
                 }

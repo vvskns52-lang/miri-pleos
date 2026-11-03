@@ -115,38 +115,57 @@ class PleosVehicleSignals(context: Context) : VehicleSignals {
 
     override suspend fun powertrain(): Powertrain? = null // 연료 종류는 Vehicle SDK에 없어 첫 실행 설정에서 고른다.
 
+    /** 도메인 하나가 실패해도 나머지는 계속 쓴다. */
+    private inline fun safe(what: String, block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            failed(what)(e)
+        }
+    }
+
     override fun start() {
-        vehicle.initialize()
-        with(vehicle.getOdometer()) {
-            getCurrentDistanceDriven({ odometerKm.value = it?.toDouble() }, failed("odometer"))
-            registerDistanceDriven(odometerListener)
+        safe("vehicle") { vehicle.initialize() }
+        safe("odometer") {
+            with(vehicle.getOdometer()) {
+                getCurrentDistanceDriven({ odometerKm.value = it?.toDouble() }, failed("odometer"))
+                registerDistanceDriven(odometerListener)
+            }
         }
-        vehicle.getBrake().registerBrakePedalStatus(brakeListener)
-        with(vehicle.getWiper()) {
-            getCurrentWiperState(front, { wiperOn.value = it == WiperState.ON }, failed("wiper"))
-            registerWiperState(front, wiperListener)
+        safe("brake") { vehicle.getBrake().registerBrakePedalStatus(brakeListener) }
+        safe("wiper") {
+            with(vehicle.getWiper()) {
+                getCurrentWiperState(front, { wiperOn.value = it == WiperState.ON }, failed("wiper"))
+                registerWiperState(front, wiperListener)
+            }
         }
-        vehicle.getHVAC().registerHvacPowerState(driverSeat, hvacListener)
-        with(vehicle.getGear()) {
-            getCurrentGearSelectionState({ parked.value = it == VehicleGear.GEAR_PARK }, failed("gear"))
-            registerGearSelection(gearListener)
+        safe("hvac") { vehicle.getHVAC().registerHvacPowerState(driverSeat, hvacListener) }
+        safe("gear") {
+            with(vehicle.getGear()) {
+                getCurrentGearSelectionState({ parked.value = it == VehicleGear.GEAR_PARK }, failed("gear"))
+                registerGearSelection(gearListener)
+            }
         }
-        with(vehicle.getSafety()) {
-            getEngineOilLevelState({ sensors.tryEmit(SensorKind.OIL_LEVEL to oilState(it)) }, failed("engine oil"))
-            getBrakeFluidLevelState({ sensors.tryEmit(SensorKind.BRAKE_FLUID_LEVEL to oilState(it)) }, failed("brake fluid"))
-            getTransmissionOilLevelState({ sensors.tryEmit(SensorKind.TRANSMISSION_OIL_LEVEL to oilState(it)) }, failed("transmission oil"))
-            hasLowWasherFluidWarning({ sensors.tryEmit(SensorKind.WASHER_WARNING to boolState(it)) }, failed("washer"))
-            registerEngineOilLevelState(engineOilListener)
-            registerBrakeFluidLevelState(brakeFluidListener)
-            registerTransmissionOilLevelState(transmissionOilListener)
-            registerLowWasherFluidWaringState(washerListener)
+        safe("safety") {
+            with(vehicle.getSafety()) {
+                getEngineOilLevelState({ sensors.tryEmit(SensorKind.OIL_LEVEL to oilState(it)) }, failed("engine oil"))
+                getBrakeFluidLevelState({ sensors.tryEmit(SensorKind.BRAKE_FLUID_LEVEL to oilState(it)) }, failed("brake fluid"))
+                getTransmissionOilLevelState({ sensors.tryEmit(SensorKind.TRANSMISSION_OIL_LEVEL to oilState(it)) }, failed("transmission oil"))
+                hasLowWasherFluidWarning({ sensors.tryEmit(SensorKind.WASHER_WARNING to boolState(it)) }, failed("washer"))
+                registerEngineOilLevelState(engineOilListener)
+                registerBrakeFluidLevelState(brakeFluidListener)
+                registerTransmissionOilLevelState(transmissionOilListener)
+                registerLowWasherFluidWaringState(washerListener)
+            }
         }
-        val tire = vehicle.getTire()
-        for ((wheel, listener) in tireListeners) {
-            tire.getLowTirePressure(wheel, { t ->
-                if (t != null) synchronized(this) { lowTireThreshold[wheel] = t }
-                tire.registerTirePressure(wheel, listener)
-            }, failed("tire"))
+        safe("tire") {
+            val tire = vehicle.getTire()
+            for ((wheel, listener) in tireListeners) {
+                tire.getLowTirePressure(wheel, { t ->
+                    if (t != null) synchronized(this) { lowTireThreshold[wheel] = t }
+                    safe("tire") { tire.registerTirePressure(wheel, listener) }
+                }, failed("tire"))
+            }
         }
     }
 
@@ -165,6 +184,6 @@ class PleosVehicleSignals(context: Context) : VehicleSignals {
             }
             tireListeners.forEach { (wheel, l) -> vehicle.getTire().unregisterTirePressure(wheel, l) }
         }
-        vehicle.release()
+        runCatching { vehicle.release() }
     }
 }

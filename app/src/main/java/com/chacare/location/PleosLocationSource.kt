@@ -24,13 +24,17 @@ class PleosLocationSource(context: Context) : LocationSource {
     }
 
     override fun start() {
-        fused.initialize()
-        fused.getLastKnownLocation(listener)
-        fused.registerFusedLocationCallback(listener)
+        try {
+            fused.initialize()
+            fused.getLastKnownLocation(listener)
+            fused.registerFusedLocationCallback(listener)
+        } catch (e: Exception) {
+            Log.w("ChaCare", "location unavailable: ${e.message}")
+        }
     }
 
     override fun stop() {
         runCatching { fused.unregisterFusedLocationCallback(listener) }
-        fused.release()
+        runCatching { fused.release() }
     }
 }

@@ -80,7 +80,10 @@ fun OnboardingScreen(
                     ) {
                         Text(part.koreanName, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(160.dp))
                         KM_AGO_OPTIONS.forEach { (label, km) ->
-                            FilterChip(answers[part] == km && (km != null || part in answers), { answers[part] = km }, label = { Text(label) })
+                            FilterChip(
+                                answers[part] == km && (km != null || part in answers), { answers[part] = km },
+                                label = { Text(label, fontSize = 18.sp, modifier = Modifier.padding(vertical = 8.dp)) },
+                            )
                         }
                     }
                 }
