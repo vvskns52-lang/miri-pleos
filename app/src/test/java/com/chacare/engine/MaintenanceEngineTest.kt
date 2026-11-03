@@ -117,7 +117,8 @@ class MaintenanceEngineTest {
         vehicle.setParked(false); advanceUntilIdle()
         vehicle.setParked(true); advanceUntilIdle()
         assertEquals(1, voice.spoken.count { "교체하셨나요" in it })
-        e.newIgnitionCycle()
+        e.newIgnitionCycle(); advanceUntilIdle() // 정차 중 새 시동 → 바로 다시 묻는다
+        assertEquals(2, voice.spoken.count { "교체하셨나요" in it })
         vehicle.setParked(false); advanceUntilIdle()
         vehicle.setParked(true); advanceUntilIdle()
         assertEquals(2, voice.spoken.count { "교체하셨나요" in it })

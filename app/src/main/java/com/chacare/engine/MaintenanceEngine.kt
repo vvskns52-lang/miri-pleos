@@ -47,6 +47,8 @@ class MaintenanceEngine(
     private var job: Job? = null
     private var promptJob: Job? = null
     private var promptsDoneThisCycle = false
+    private var workScope: CoroutineScope? = null
+    private var isParked = false
 
     private lateinit var sensors: SensorChangeDetector
     private var driving = false
@@ -109,8 +111,12 @@ class MaintenanceEngine(
                     if (visit != null) repo.setPendingShopVisit(visit)
                 }
             }
+            workScope = this
             launch {
-                vehicle.parked.distinctUntilChanged().collect { parked -> if (parked) onParked(this@launch) else onDriving() }
+                vehicle.parked.distinctUntilChanged().collect { parked ->
+                    isParked = parked
+                    if (parked) onParked(this@launch) else onDriving()
+                }
             }
         }
     }
@@ -118,14 +124,19 @@ class MaintenanceEngine(
     fun stop() {
         job?.cancel()
         job = null
+        workScope = null
         voice.stop()
         vehicle.stop()
         location.stop()
     }
 
-    /** 시동을 새로 건 것으로 본다(데모 패널의 "새 시동"). */
+    /** 시동을 새로 건 것으로 본다(데모 패널의 "새 시동"). P단이면 실제 시동처럼 바로 묻는다. */
     fun newIgnitionCycle() {
-        promptsDoneThisCycle = false
+        val scope = workScope ?: return
+        scope.launch {
+            promptsDoneThisCycle = false
+            if (isParked) onParked(scope)
+        }
     }
 
     private suspend fun trackMinutes(on: Boolean, since: Long?, add: suspend (Double) -> Unit): Long? {
