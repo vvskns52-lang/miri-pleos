@@ -125,7 +125,7 @@ private fun App(graph: AppGraph) {
                     val factor by remember(s.part) { repo.factor(s.part) }.collectAsState(initial = 1.0)
                     val spec by remember(s.part) { repo.spec(s.part) }.collectAsState(initial = null)
                     estimates.firstOrNull { it.part == s.part }?.let { e ->
-                        PartDetailScreen(e, spec, records, factor, parked, onBack = { screen = Screen.Dashboard }, onEdit = { screen = Screen.Edit(s.part) })
+                        PartDetailScreen(e, spec, vehicle, records, factor, parked, onBack = { screen = Screen.Dashboard }, onEdit = { screen = Screen.Edit(s.part) })
                     }
                 }
                 Screen.Vehicle -> VehicleChangeScreen(

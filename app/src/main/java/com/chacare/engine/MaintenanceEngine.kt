@@ -6,6 +6,7 @@ import com.chacare.data.RecordType
 import com.chacare.data.ServiceRecord
 import com.chacare.domain.AlertRecord
 import com.chacare.domain.Answer
+import com.chacare.domain.IntervalKind
 import com.chacare.domain.MAX_ASKS
 import com.chacare.domain.Part
 import com.chacare.domain.Prompt
@@ -179,13 +180,12 @@ class MaintenanceEngine(
     private suspend fun runPrompts() {
         val now = clock()
         val odo = repo.lastOdometer() ?: 0.0
-        val alerts = repo.estimates().first()
-            .filter { shouldAlert(it.status, repo.lastAlert(it.part), now, odo) }
-            .map { it.part }
+        val due = repo.estimates().first().filter { shouldAlert(it.status, repo.lastAlert(it.part), now, odo) }
         val plan = planPrompts(
-            repo.pendingShopVisit(), repo.pendings(), alerts,
+            repo.pendingShopVisit(), repo.pendings(), due.map { it.part },
             tireLow = sensors.isLow(SensorKind.TIRE_PRESSURE_WARNING),
             washerLow = sensors.isLow(SensorKind.WASHER_WARNING),
+            inspectOnly = due.filter { it.kind == IntervalKind.INSPECT }.map { it.part }.toSet(),
         )
         for (prompt in plan) {
             voice.speak(prompt.text)

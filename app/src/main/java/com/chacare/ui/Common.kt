@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.chacare.R
 import com.chacare.data.RecordSource
 import com.chacare.data.RecordType
+import com.chacare.domain.IntervalKind
 import com.chacare.domain.LifeStatus
 import com.chacare.domain.Part
 
@@ -105,9 +106,9 @@ fun Modifier.card(radius: Dp = 24.dp): Modifier =
     clip(RoundedCornerShape(radius)).background(Color.White).border(1.dp, Divider, RoundedCornerShape(radius))
 
 @Composable
-fun StatusPill(status: LifeStatus) {
+fun StatusPill(status: LifeStatus, kind: IntervalKind = IntervalKind.REPLACE) {
     Text(
-        status.label(),
+        if (status == LifeStatus.REPLACE && kind == IntervalKind.INSPECT) "점검 필요" else status.label(),
         Modifier.clip(RoundedCornerShape(50)).background(status.color().copy(alpha = 0.12f))
             .padding(horizontal = 14.dp, vertical = 6.dp),
         color = status.color(), fontSize = 17.sp, fontWeight = FontWeight.Bold,

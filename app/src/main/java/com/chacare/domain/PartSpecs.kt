@@ -1,11 +1,16 @@
 package com.chacare.domain
 
-/** 거리·기간 주기 중 먼저 오는 쪽이 기준. null이면 그 기준을 쓰지 않는다. */
+/**
+ * 거리·기간 주기 중 먼저 오는 쪽이 기준. null이면 그 기준을 쓰지 않는다.
+ * [kind]가 INSPECT면 "점검 시기", NONE이면 주기 없이 상태만 본다.
+ */
 data class PartSpec(
     val part: Part,
     val intervalKm: Int?,
     val intervalMonths: Int?,
     val sensor: SensorKind?,
+    val kind: IntervalKind = IntervalKind.REPLACE,
+    val note: String? = null,
 )
 
 fun Part.sensor(): SensorKind? = when (this) {
@@ -17,11 +22,12 @@ fun Part.sensor(): SensorKind? = when (this) {
     else -> null
 }
 
-/** 차종 매뉴얼 기준 권장 주기. 차종별 값이 없으면 동력원 기본값(Manuals.kt)을 쓴다. */
-fun specsFor(powertrain: Powertrain, model: VehicleModel? = null): List<PartSpec> {
-    val intervals = BASELINE.getValue(powertrain) + model?.overrides?.get(powertrain).orEmpty()
-    return intervals.map { (part, i) -> PartSpec(part, i.km, i.months, part.sensor()) }
-}
+/** 차종 취급설명서 기준 권장 주기(Manuals.kt). */
+fun specsFor(powertrain: Powertrain, model: VehicleModel? = null): List<PartSpec> =
+    intervalsFor(powertrain, model).map { (part, i) ->
+        val none = i.kind == IntervalKind.NONE
+        PartSpec(part, i.km.takeUnless { none }, i.months.takeUnless { none }, part.sensor(), i.kind, i.note)
+    }
 
-/** 가솔린 기본 스펙. 센서 → 부품 대응 등 동력원과 무관한 조회에 쓴다. */
+/** 센서 → 부품 대응 등 동력원·차종과 무관한 조회에 쓴다. */
 val DEFAULT_SPECS: List<PartSpec> get() = specsFor(Powertrain.ICE)

@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chacare.data.CustomEstimate
+import com.chacare.domain.IntervalKind
 import com.chacare.domain.LifeEstimate
 import com.chacare.domain.LifeStatus
 import com.chacare.domain.Part
@@ -96,7 +97,7 @@ fun DashboardScreen(
         ) {
             items(estimates, key = { it.part }) { e ->
                 CardShell(enabled = parked, onClick = { onOpen(e.part) }, image = { PartImage(e.part, 136.dp) }) {
-                    CardBody(e.part.koreanName, e.part.summary, e.status, e.remainingRatio, remainingText(e))
+                    CardBody(e.part.koreanName, e.part.summary, e.status, e.remainingRatio, remainingText(e), e.kind)
                 }
             }
             items(customs, key = { "custom-${it.part.id}" }) { c ->
@@ -145,21 +146,21 @@ private fun CardShell(enabled: Boolean, onClick: () -> Unit, image: @Composable 
 }
 
 @Composable
-private fun CardBody(name: String, subtitle: String, status: LifeStatus?, ratio: Double?, remaining: String) {
+private fun CardBody(name: String, subtitle: String, status: LifeStatus?, ratio: Double?, remaining: String, kind: IntervalKind = IntervalKind.REPLACE) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             name, Modifier.weight(1f),
             fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
-        if (status != null) StatusPill(status)
+        if (status != null) StatusPill(status, kind)
     }
     Spacer(Modifier.height(4.dp))
     Text(subtitle, fontSize = 16.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     Spacer(Modifier.height(12.dp))
     if (status != null) LifeGauge(ratio, status) else Box(Modifier.fillMaxWidth().height(10.dp))
     Spacer(Modifier.height(10.dp))
-    Text(remaining, fontSize = 18.sp, color = TextSecondary)
+    Text(remaining, fontSize = 18.sp, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -174,12 +175,17 @@ fun LifeGauge(ratio: Double?, status: LifeStatus) {
     }
 }
 
-fun remainingText(e: LifeEstimate): String = when {
-    e.part == Part.WASHER_FLUID -> if (e.status == LifeStatus.REPLACE) "보충이 필요해요" else "부족 경고 없음"
-    e.remainingRatio == null -> "교체 이력 정보 없음"
-    (e.remainingKm ?: 1.0) <= 0.0 || (e.remainingMonths ?: 1.0) <= 0.0 -> "교체 시기가 지났어요"
-    else -> listOfNotNull(
-        e.remainingKm?.let { displayKm(it) },
-        e.remainingMonths?.let { displayMonths(it) },
-    ).joinToString(" · ") + " 남음"
+/** 취급설명서가 정한 종류에 맞춰 "교체까지" / "점검까지" / 주기 없음 설명을 보여준다. */
+fun remainingText(e: LifeEstimate): String {
+    val verb = if (e.kind == IntervalKind.INSPECT) "점검" else "교체"
+    return when {
+        e.part == Part.WASHER_FLUID -> if (e.status == LifeStatus.REPLACE) "보충이 필요해요" else "부족 경고 없음"
+        e.kind == IntervalKind.NONE -> e.note ?: "교체 주기 없음"
+        e.remainingRatio == null -> "$verb 이력 정보 없음"
+        (e.remainingKm ?: 1.0) <= 0.0 || (e.remainingMonths ?: 1.0) <= 0.0 -> "$verb 시기가 지났어요"
+        else -> "${verb}까지 " + listOfNotNull(
+            e.remainingKm?.let { displayKm(it) },
+            e.remainingMonths?.let { displayMonths(it) },
+        ).joinToString(" · ")
+    }
 }

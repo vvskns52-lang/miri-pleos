@@ -15,8 +15,9 @@ sealed class Prompt {
         override val text = "${pending.part.koreanName} 교체하셨나요? 교체, 보충, 아니요로 답해 주세요."
     }
 
-    data class Alert(val part: Part) : Prompt() {
-        override val text = "${part.koreanName} 교체 시기가 됐어요."
+    /** 취급설명서가 "점검"만 정한 항목(패드·12V 배터리 등)은 점검 시기로 알린다. */
+    data class Alert(val part: Part, val inspect: Boolean = false) : Prompt() {
+        override val text = "${part.koreanName} ${if (inspect) "점검" else "교체"} 시기가 됐어요."
     }
 
     data object TireLow : Prompt() {
@@ -35,10 +36,11 @@ fun planPrompts(
     alerts: List<Part>,
     tireLow: Boolean,
     washerLow: Boolean,
+    inspectOnly: Set<Part> = emptySet(),
 ): List<Prompt> = buildList {
     if (tireLow) add(Prompt.TireLow)
     if (washerLow) add(Prompt.WasherLow)
     if (shop != null) add(Prompt.AskShop(shop))
     pendings.filter { it.askCount < MAX_ASKS }.forEach { add(Prompt.AskSensor(it)) }
-    alerts.forEach { add(Prompt.Alert(it)) }
+    alerts.forEach { add(Prompt.Alert(it, inspect = it in inspectOnly)) }
 }

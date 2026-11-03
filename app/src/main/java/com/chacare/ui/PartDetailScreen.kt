@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.sp
 import com.chacare.data.RecordType
 import com.chacare.data.ServiceRecord
 import com.chacare.domain.LifeEstimate
+import com.chacare.domain.IntervalKind
 import com.chacare.domain.PartSpec
+import com.chacare.domain.Powertrain
+import com.chacare.domain.VehicleModel
 import com.chacare.domain.description
 import com.chacare.domain.intervalSource
 
@@ -32,6 +35,7 @@ import com.chacare.domain.intervalSource
 fun PartDetailScreen(
     estimate: LifeEstimate,
     spec: PartSpec?,
+    vehicle: Pair<VehicleModel?, Powertrain>?,
     records: List<ServiceRecord>,
     factor: Double,
     parked: Boolean,
@@ -52,17 +56,23 @@ fun PartDetailScreen(
                 Spacer(Modifier.height(16.dp))
                 Text(estimate.part.koreanName, fontSize = 32.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                 Spacer(Modifier.height(12.dp))
-                StatusPill(estimate.status)
+                StatusPill(estimate.status, estimate.kind)
             }
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 Text(estimate.part.description, fontSize = 19.sp, color = TextPrimary, lineHeight = 28.sp)
                 Spacer(Modifier.height(12.dp))
                 if (spec != null) {
                     Text(
-                        "권장 교환 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}",
+                        when (spec.kind) {
+                            IntervalKind.REPLACE -> "권장 교체 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}"
+                            IntervalKind.INSPECT -> "권장 점검 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}"
+                            IntervalKind.NONE -> "정해진 교체 주기 없음"
+                        },
                         fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary,
                     )
-                    Text(intervalSource(estimate.part), fontSize = 16.sp, color = TextSecondary)
+                    vehicle?.let { (model, pt) ->
+                        Text(intervalSource(estimate.part, model, pt), fontSize = 16.sp, color = TextSecondary)
+                    }
                 }
                 Spacer(Modifier.height(24.dp))
                 Text("남은 수명", fontSize = 18.sp, color = TextSecondary)
