@@ -80,6 +80,7 @@ fun Part.imageRes(): Int = when (this) {
     Part.COOLANT -> R.drawable.part_coolant
     Part.BATTERY -> R.drawable.part_battery
     Part.DRIVE_BELT -> R.drawable.part_drive_belt
+    Part.REDUCER_OIL -> R.drawable.part_reducer_oil
 }
 
 @Composable

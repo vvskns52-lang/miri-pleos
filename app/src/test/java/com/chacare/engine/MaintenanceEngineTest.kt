@@ -91,6 +91,16 @@ class MaintenanceEngineTest {
         assertEquals(null, repo.pendingShopVisit())
     }
 
+    @Test fun shopAnswerMatchesCustomPart() = runTest {
+        val id = repo.addCustomPart("블랙박스 메모리", null, null)
+        engine(FakeVoiceIO(listOf("엔진오일이랑 블랙박스 메모리 바꿨어")))
+        location.moveTo(nearLat, 127.0); advanceTimeBy(31 * min)
+        location.moveTo(nearLat, 127.0); advanceUntilIdle()
+        vehicle.setParked(true); advanceUntilIdle()
+        assertEquals(1, repo.records(Part.ENGINE_OIL).first().size)
+        assertEquals(1, repo.customRecords(id).first().size)
+    }
+
     @Test fun silenceKeepsPending() = runTest {
         engine(FakeVoiceIO(listOf(null)))
         brakeFluidRecovered()
@@ -146,7 +156,7 @@ class MaintenanceEngineTest {
         repo.addRecord(ServiceRecord(part = Part.ENGINE_OIL, type = RecordType.REPLACED, date = LocalDate.of(2026, 11, 1), odometerKm = 0.0, source = RecordSource.MANUAL))
         val voice = FakeVoiceIO(emptyList())
         val e = engine(voice)
-        vehicle.setOdometer(0.0); advanceUntilIdle(); vehicle.setOdometer(9500.0); advanceUntilIdle()
+        vehicle.setOdometer(0.0); advanceUntilIdle(); vehicle.setOdometer(14_000.0); advanceUntilIdle()
         vehicle.setParked(true); advanceUntilIdle()
         e.newIgnitionCycle(); vehicle.setParked(false); advanceUntilIdle(); vehicle.setParked(true); advanceUntilIdle()
         assertEquals(1, voice.spoken.count { it == "엔진오일 교체 시기가 됐어요." })

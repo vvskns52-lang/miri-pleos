@@ -33,17 +33,30 @@ fun estimate(
     factor: Double,
     sensorWarning: Boolean = false,
 ): LifeEstimate {
-    if (spec.intervalKm == null && spec.intervalMonths == null) {
-        val status = if (sensorWarning) LifeStatus.REPLACE else LifeStatus.GOOD
-        return LifeEstimate(spec.part, status, null, null, null)
-    }
-    if (last == null) return LifeEstimate(spec.part, LifeStatus.CHECK, null, null, null)
+    val life = lifeOf(spec.intervalKm, spec.intervalMonths, last, nowOdometerKm, today, factor)
+        ?: return LifeEstimate(spec.part, if (sensorWarning) LifeStatus.REPLACE else LifeStatus.GOOD, null, null, null)
+    return LifeEstimate(spec.part, life.status, life.remainingRatio, life.remainingKm, life.remainingMonths)
+}
+
+data class Life(val status: LifeStatus, val remainingRatio: Double?, val remainingKm: Double?, val remainingMonths: Double?)
+
+/** 주기가 하나도 없으면 null(기록만 하는 항목). 교체 이력을 모르면 "점검 권장". */
+fun lifeOf(
+    intervalKm: Int?,
+    intervalMonths: Int?,
+    last: LastService?,
+    nowOdometerKm: Double,
+    today: LocalDate,
+    factor: Double,
+): Life? {
+    if (intervalKm == null && intervalMonths == null) return null
+    if (last == null) return Life(LifeStatus.CHECK, null, null, null)
 
     val usedKm = max(0.0, nowOdometerKm - last.odometerKm) * factor
     val usedMonths = max(0L, ChronoUnit.DAYS.between(last.date, today)) / DAYS_PER_MONTH * factor
 
-    val kmRatio = spec.intervalKm?.let { (it - usedKm) / it }
-    val monthRatio = spec.intervalMonths?.let { (it - usedMonths) / it }
+    val kmRatio = intervalKm?.let { (it - usedKm) / it }
+    val monthRatio = intervalMonths?.let { (it - usedMonths) / it }
     val ratio = listOfNotNull(kmRatio, monthRatio).min()
 
     val status = when {
@@ -51,9 +64,9 @@ fun estimate(
         ratio > 0.10 + EPS -> LifeStatus.CHECK
         else -> LifeStatus.REPLACE
     }
-    val remainingKm = spec.intervalKm?.let { max(0.0, it - usedKm) / factor }
-    val remainingMonths = spec.intervalMonths?.let { max(0.0, it - usedMonths) / factor }
-    return LifeEstimate(spec.part, status, ratio, remainingKm, remainingMonths)
+    val remainingKm = intervalKm?.let { max(0.0, it - usedKm) / factor }
+    val remainingMonths = intervalMonths?.let { max(0.0, it - usedMonths) / factor }
+    return Life(status, ratio, remainingKm, remainingMonths)
 }
 
 /** 가짜 정밀함을 피하려고 천 km 단위로만 보여준다(설계서 5.2). */

@@ -6,6 +6,10 @@ import com.chacare.domain.LastService
 import com.chacare.domain.LifeEstimate
 import com.chacare.domain.LifeStatus
 import com.chacare.domain.Part
+import com.chacare.domain.PartSpec
+import com.chacare.domain.VehicleModel
+import com.chacare.domain.findModel
+import com.chacare.domain.lifeOf
 import com.chacare.domain.PendingConfirmation
 import com.chacare.domain.Powertrain
 import com.chacare.domain.SensorKind
@@ -44,6 +48,29 @@ data class ServiceRecord(
     val source: RecordSource,
 )
 
+/** 목록에 없는 부품을 사용자가 직접 추가한 것. 주기가 없으면 교체 기록만 남긴다. */
+@Serializable
+data class CustomPart(val id: Long, val name: String, val intervalKm: Int? = null, val intervalMonths: Int? = null)
+
+@Serializable
+data class CustomRecord(
+    val id: Long,
+    val customId: Long,
+    @Serializable(with = LocalDateSerializer::class) val date: LocalDate,
+    val odometerKm: Double,
+    val memo: String = "",
+)
+
+/** [status]가 null이면 주기 없이 기록만 하는 항목. */
+data class CustomEstimate(
+    val part: CustomPart,
+    val status: LifeStatus?,
+    val remainingRatio: Double?,
+    val remainingKm: Double?,
+    val remainingMonths: Double?,
+    val last: CustomRecord?,
+)
+
 /** 앱이 기억하는 전부. 데이터가 작아서 JSON 파일 하나로 충분하다. */
 @Serializable
 private data class StoreData(
@@ -58,11 +85,14 @@ private data class StoreData(
     val alerts: Map<Part, AlertRecord> = emptyMap(),
     val lastOdometer: Double? = null,
     val powertrain: Powertrain? = null,
+    val modelId: String? = null,
+    val customParts: List<CustomPart> = emptyList(),
+    val customRecords: List<CustomRecord> = emptyList(),
     val onboarded: Boolean = false,
     val demoMode: Boolean = false,
 )
 
-private object LocalDateSerializer : KSerializer<LocalDate> {
+internal object LocalDateSerializer : KSerializer<LocalDate> {
     override val descriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.LONG)
     override fun serialize(encoder: Encoder, value: LocalDate) = encoder.encodeLong(value.toEpochDay())
     override fun deserialize(decoder: Decoder): LocalDate = LocalDate.ofEpochDay(decoder.decodeLong())
@@ -162,6 +192,52 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
 
     suspend fun setPowertrain(p: Powertrain) = update { it.copy(powertrain = p) }
 
+    suspend fun modelId(): String? = state.value.modelId
+
+    /** 차종을 고르면 그 차종 매뉴얼의 주기가 적용된다. 목록에 없는 차는 modelId = null. */
+    suspend fun setVehicle(modelId: String?, powertrain: Powertrain) = update { it.copy(modelId = modelId, powertrain = powertrain) }
+
+    val vehicle: Flow<Pair<VehicleModel?, Powertrain>> = state.map { findModel(it.modelId) to (it.powertrain ?: Powertrain.ICE) }
+
+    /** 상세 화면에 보여줄 현재 차종 기준 권장 주기. */
+    fun spec(part: Part): Flow<PartSpec?> = state.map { s -> specsOf(s).firstOrNull { it.part == part } }
+
+    private fun specsOf(s: StoreData) = specsFor(s.powertrain ?: Powertrain.ICE, findModel(s.modelId))
+
+    // --- 직접 추가한 부품 ---
+
+    suspend fun addCustomPart(name: String, intervalKm: Int?, intervalMonths: Int?): Long {
+        val id = state.value.nextId
+        update { s -> s.copy(nextId = s.nextId + 1, customParts = s.customParts + CustomPart(id, name.trim(), intervalKm, intervalMonths)) }
+        return id
+    }
+
+    suspend fun updateCustomPart(p: CustomPart) = update { s -> s.copy(customParts = s.customParts.map { if (it.id == p.id) p else it }) }
+
+    suspend fun deleteCustomPart(id: Long) = update { s ->
+        s.copy(customParts = s.customParts.filterNot { it.id == id }, customRecords = s.customRecords.filterNot { it.customId == id })
+    }
+
+    suspend fun customParts(): List<CustomPart> = state.value.customParts
+
+    suspend fun addCustomRecord(customId: Long, date: LocalDate, odometerKm: Double, memo: String) = update { s ->
+        s.copy(nextId = s.nextId + 1, customRecords = s.customRecords + CustomRecord(s.nextId, customId, date, odometerKm, memo.trim()))
+    }
+
+    suspend fun deleteCustomRecord(id: Long) = update { s -> s.copy(customRecords = s.customRecords.filterNot { it.id == id }) }
+
+    fun customRecords(customId: Long): Flow<List<CustomRecord>> =
+        state.map { s -> s.customRecords.filter { it.customId == customId }.sortedByDescending { it.date } }
+
+    fun customEstimates(): Flow<List<CustomEstimate>> = state.map { s ->
+        val odo = s.lastOdometer ?: 0.0
+        s.customParts.map { p ->
+            val last = s.customRecords.filter { it.customId == p.id }.maxWithOrNull(compareBy({ it.date }, { it.odometerKm }))
+            val life = lifeOf(p.intervalKm, p.intervalMonths, last?.let { LastService(it.date, it.odometerKm) }, odo, today(), 1.0)
+            CustomEstimate(p, life?.status, life?.remainingRatio, life?.remainingKm, life?.remainingMonths, last)
+        }
+    }
+
     suspend fun onboarded(): Boolean = state.value.onboarded
 
     suspend fun setOnboarded() = update { it.copy(onboarded = true) }
@@ -178,7 +254,7 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
     fun estimates(): Flow<List<LifeEstimate>> = state.map { s ->
         val odo = s.lastOdometer ?: 0.0
         val washerLow = s.sensorSnapshot[SensorKind.WASHER_WARNING] == SignalState.LOW
-        specsFor(s.powertrain ?: Powertrain.ICE).map { spec ->
+        specsOf(s).map { spec ->
             estimate(
                 spec, lastReplacement(s, spec.part), odo, today(),
                 correctionFactor(spec.part, usageSince(s, spec.part)),

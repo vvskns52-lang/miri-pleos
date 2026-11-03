@@ -36,6 +36,12 @@ private val PART_WORDS: List<Pair<Part, List<String>>> = listOf(
     Part.ENGINE_OIL to listOf("엔진오일", "엔진"),
 )
 
+/** 사용자가 직접 추가한 부품 이름이 답변에 나왔는지(띄어쓰기 무시). */
+fun mentions(name: String, text: String?): Boolean {
+    val n = normalize(name)
+    return n.isNotEmpty() && n in normalize(text)
+}
+
 /**
  * 그냥 "오일"은 다른 오일 부품이 없을 때만 엔진오일로, 그냥 "필터"는 다른 필터가 없을 때만 에어컨 필터로 본다.
  * "엔진필터"가 엔진오일로 잡히지 않도록 엔진 필터가 있으면 "엔진"만으로는 엔진오일로 보지 않는다.

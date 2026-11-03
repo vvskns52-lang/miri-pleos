@@ -1,6 +1,11 @@
 package com.chacare.domain
 
-enum class Powertrain { ICE, EV }
+/** ICE는 가솔린(저장 파일 호환을 위해 이름 유지). */
+enum class Powertrain(val label: String) {
+    ICE("가솔린"),
+    HYBRID("하이브리드"),
+    EV("전기"),
+}
 
 enum class Part(val koreanName: String) {
     ENGINE_OIL("엔진오일"),
@@ -16,6 +21,7 @@ enum class Part(val koreanName: String) {
     COOLANT("냉각수"),
     BATTERY("배터리"),
     DRIVE_BELT("구동벨트"),
+    REDUCER_OIL("감속기 오일"),
 }
 
 /** 차량이 직접 알려주는 값(설계서 4.3 ①의 감시 대상). */

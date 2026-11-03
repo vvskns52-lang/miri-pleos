@@ -6,7 +6,8 @@ import org.junit.Test
 import java.time.LocalDate
 
 class LifeEstimatorTest {
-    private val oil = DEFAULT_SPECS.single { it.part == Part.ENGINE_OIL }
+    // 계산 규칙만 검증하도록 실제 차종 주기와 무관한 고정 스펙을 쓴다.
+    private val oil = PartSpec(Part.ENGINE_OIL, 10_000, 12, SensorKind.OIL_LEVEL)
     private val d0 = LocalDate.of(2026, 1, 1)
     private fun at(km: Double) = LastService(d0, km)
 
@@ -34,9 +35,18 @@ class LifeEstimatorTest {
     @Test fun odometerBelowLastServiceNoCrash() = assertEquals(LifeStatus.GOOD, estimate(oil, at(5000.0), 4000.0, d0, 1.0).status)
 
     @Test fun washer() {
-        val w = DEFAULT_SPECS.single { it.part == Part.WASHER_FLUID }
+        val w = PartSpec(Part.WASHER_FLUID, null, null, SensorKind.WASHER_WARNING)
         assertEquals(LifeStatus.REPLACE, estimate(w, null, 0.0, d0, 1.0, sensorWarning = true).status)
         assertEquals(LifeStatus.GOOD, estimate(w, null, 0.0, d0, 1.0).status)
+    }
+
+    /** 직접 추가한 부품도 같은 규칙으로 계산한다. 주기가 없으면 상태도 없다. */
+    @Test fun customInterval() {
+        val life = lifeOf(5_000, null, at(0.0), 4_000.0, d0, 1.0)!!
+        assertEquals(LifeStatus.CHECK, life.status)
+        assertEquals(1_000.0, life.remainingKm!!, 1e-9)
+        assertNull(lifeOf(null, null, at(0.0), 4_000.0, d0, 1.0))
+        assertNull(lifeOf(5_000, null, null, 4_000.0, d0, 1.0)!!.remainingRatio)
     }
 
     @Test fun rounding() {

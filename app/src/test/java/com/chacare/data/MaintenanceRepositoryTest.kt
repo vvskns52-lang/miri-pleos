@@ -80,7 +80,7 @@ class MaintenanceRepositoryTest {
         repo.setPowertrain(Powertrain.ICE)
         repo.saveOdometer(20_000.0)
         for (p in Part.entries) repo.addRecord(rec(p, RecordType.REPLACED, odo = 20_000.0))
-        repo.addRecord(rec(Part.ENGINE_OIL, RecordType.REPLACED, odo = 10_500.0).copy(date = today.minusMonths(1)))
+        repo.addRecord(rec(Part.ENGINE_OIL, RecordType.REPLACED, odo = 6_000.0).copy(date = today.minusMonths(1)))
         // 엔진오일 마지막 교체가 위 기록보다 나중(같은 날, 20,000km)이 되지 않도록 앞 기록 삭제
         repo.records(Part.ENGINE_OIL).first().filter { it.odometerKm == 20_000.0 }.forEach { repo.deleteRecord(it.id) }
         val list = repo.estimates().first()
@@ -89,9 +89,43 @@ class MaintenanceRepositoryTest {
         assertEquals(LifeStatus.GOOD, list.last().status)
     }
 
-    @Test fun evHasEightParts() = runTest {
+    @Test fun evHasNineParts() = runTest {
         repo.setPowertrain(Powertrain.EV)
-        assertEquals(8, repo.estimates().first().size)
+        assertEquals(9, repo.estimates().first().size)
+    }
+
+    @Test fun vehicleModelSurvivesRestart() = runTest {
+        repo.setVehicle("ioniq5", Powertrain.EV)
+        val again = newRepo()
+        assertEquals("ioniq5", again.modelId())
+        assertEquals(Powertrain.EV, again.powertrain())
+    }
+
+    @Test fun customPartLogAndEstimate() = runTest {
+        repo.saveOdometer(10_000.0)
+        val id = repo.addCustomPart("에어컨 가스", intervalKm = 5_000, intervalMonths = null)
+        repo.addCustomRecord(id, today, 6_000.0, "충전")
+        val e = repo.customEstimates().first().single()
+        assertEquals("에어컨 가스", e.part.name)
+        assertEquals(LifeStatus.CHECK, e.status) // 5,000km 중 4,000km 사용 → 20% 남음
+        assertEquals(1_000.0, e.remainingKm!!, 1e-9)
+        assertEquals("충전", e.last!!.memo)
+    }
+
+    @Test fun customPartWithoutIntervalIsJustALog() = runTest {
+        val id = repo.addCustomPart("블랙박스 메모리", intervalKm = null, intervalMonths = null)
+        repo.addCustomRecord(id, today, 100.0, "")
+        val e = newRepo().customEstimates().first().single()
+        assertNull(e.status)
+        assertEquals(1, newRepo().customRecords(id).first().size)
+    }
+
+    @Test fun deleteCustomPartRemovesRecords() = runTest {
+        val id = repo.addCustomPart("에어컨 가스", 5_000, null)
+        repo.addCustomRecord(id, today, 1.0, "")
+        repo.deleteCustomPart(id)
+        assertTrue(repo.customEstimates().first().isEmpty())
+        assertTrue(repo.customRecords(id).first().isEmpty())
     }
 
     @Test fun onboardingFlags() = runTest {

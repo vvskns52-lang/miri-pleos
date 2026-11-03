@@ -15,6 +15,7 @@ import com.chacare.domain.SensorKind
 import com.chacare.domain.Shop
 import com.chacare.domain.ShopVisitDetector
 import com.chacare.domain.UsageStats
+import com.chacare.domain.mentions
 import com.chacare.domain.parseAnswer
 import com.chacare.domain.parseParts
 import com.chacare.domain.planPrompts
@@ -190,10 +191,13 @@ class MaintenanceEngine(
             voice.speak(prompt.text)
             when (prompt) {
                 is Prompt.AskShop -> {
-                    val parts = parseParts(voice.listen())
-                    parts.forEach {
+                    val answer = voice.listen()
+                    parseParts(answer).forEach {
                         record(it, RecordType.REPLACED, RecordSource.SHOP_VOICE)
                         repo.removePending(it)
+                    }
+                    repo.customParts().filter { mentions(it.name, answer) }.forEach {
+                        repo.addCustomRecord(it.id, today(), repo.lastOdometer() ?: 0.0, "정비소 방문 · 음성 답변")
                     }
                     repo.setPendingShopVisit(null)
                 }
