@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,6 +61,7 @@ fun DashboardScreen(
     onOpenCustom: (Long) -> Unit,
     onAddCustom: () -> Unit,
     onChangeVehicle: () -> Unit,
+    onAsk: () -> Unit,
     onSecretTap: () -> Unit,
 ) {
     var taps by remember { mutableIntStateOf(0) }
@@ -75,6 +77,11 @@ fun DashboardScreen(
                 Text(summary(estimates, customs), color = TextSecondary, fontSize = 20.sp)
             }
             Spacer(Modifier.weight(1f))
+            // 말로 주고받으므로 주행 중에도 누를 수 있게 둔다.
+            Button(onClick = onAsk, shape = RoundedCornerShape(50)) {
+                Text("말로 물어보기", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(24.dp))
             if (vehicle != null) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text("내 차", color = TextSecondary, fontSize = 16.sp)

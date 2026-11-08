@@ -8,6 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -113,8 +115,11 @@ private fun App(graph: AppGraph) {
     var onboarded by remember { mutableStateOf<Boolean?>(null) }
     var screen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
+    val qa by graph.qa.collectAsState()
+
     LaunchedEffect(Unit) { onboarded = repo.onboarded() }
 
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         if (!parked && screen != Screen.Demo) DrivingBanner()
         when (onboarded) {
@@ -133,6 +138,7 @@ private fun App(graph: AppGraph) {
                     onOpenCustom = { screen = Screen.CustomDetail(it) },
                     onAddCustom = { screen = Screen.CustomAdd },
                     onChangeVehicle = { screen = Screen.Vehicle },
+                    onAsk = { graph.ask() },
                     onSecretTap = { screen = Screen.Demo },
                 )
                 is Screen.Detail -> {
@@ -183,6 +189,8 @@ private fun App(graph: AppGraph) {
                 Screen.Demo -> DemoPanelScreen(demoMode, parked, demoActions(graph, scope), onBack = { screen = Screen.Dashboard })
             }
         }
+    }
+    qa?.let { QaPanel(it, onClose = graph::dismissQa, modifier = Modifier.align(Alignment.BottomCenter)) }
     }
 }
 
@@ -242,6 +250,7 @@ private fun demoActions(graph: AppGraph, scope: CoroutineScope): DemoActions {
         car.setParked(true); delay(250)
     }
     return DemoActions(
+        ask = graph::ask,
         shortTrips = { scope.launch { repeat(12) { trip(3.0, 6, 3) }; trip(250.0, 180, 20) } },
         congestion = { scope.launch { trip(230.0, 1_020, 60) } },
         stopAndGo = { scope.launch { trip(220.0, 300, 500) } },

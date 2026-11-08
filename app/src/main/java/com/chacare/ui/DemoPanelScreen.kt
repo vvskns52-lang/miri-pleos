@@ -27,6 +27,7 @@ import com.chacare.domain.SensorKind
 
 /** 발표·시연용 숨김 화면(설계서 5.10). 대시보드 제목을 5번 누르면 열린다. */
 class DemoActions(
+    val ask: (String) -> Unit,
     val shortTrips: () -> Unit,
     val congestion: () -> Unit,
     val stopAndGo: () -> Unit,
@@ -70,6 +71,11 @@ fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, actions: DemoActions, on
             FilledTonalButton({ actions.pressBrake(100) }) { Text("브레이크 100회", fontSize = 18.sp) }
             FilledTonalButton({ actions.runWiper(30) }) { Text("와이퍼 30분", fontSize = 18.sp) }
             FilledTonalButton({ actions.runHvac(60) }) { Text("에어컨 60분", fontSize = 18.sp) }
+        }
+        Section("말로 물어보기 예시 (마이크 없이)") {
+            listOf("엔진오일 언제 갈아?", "뭐 갈아야 돼?", "에어컨 필터 교체 주기가 뭐야?", "브레이크 패드 어때?").forEach { q ->
+                FilledTonalButton({ actions.ask(q) }) { Text(q, fontSize = 18.sp) }
+            }
         }
         Section("운행 패턴 재현 (가혹 조건 판정)") {
             FilledTonalButton({ actions.shortTrips() }) { Text("짧은 거리 반복 주행", fontSize = 18.sp) }
