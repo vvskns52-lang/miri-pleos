@@ -171,7 +171,7 @@ class MaintenanceEngine(
                 voice.listen()
             }
             val customs = repo.customEstimates().first().map { CustomAnswer(it.part.name, customPhrase(it)) }
-            val answer = answerQuery(question, repo.estimates().first(), repo.specs().first(), customs)
+            val answer = answerQuery(question, repo.estimates().first(), repo.specs().first(), customs, repo.costs().first())
             qaState.value = QaState.Answered(question, answer)
             voice.speak(answer)
         }

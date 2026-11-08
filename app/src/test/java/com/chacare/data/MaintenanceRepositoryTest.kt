@@ -31,6 +31,17 @@ class MaintenanceRepositoryTest {
     private fun rec(part: Part, type: RecordType, odo: Double) =
         ServiceRecord(part = part, type = type, date = today, odometerKm = odo, source = RecordSource.MANUAL)
 
+    @Test fun costsFromPartAndCustomRecords() = runTest {
+        repo.addRecord(rec(Part.ENGINE_OIL, RecordType.REPLACED, odo = 1000.0).copy(cost = 80_000))
+        repo.addRecord(rec(Part.TIRE, RecordType.REPLACED, odo = 1000.0)) // 비용 없음
+        val id = repo.addCustomPart("블랙박스", null, null)
+        repo.addCustomRecord(id, today.minusYears(1), 0.0, "", cost = 50_000)
+        val c = newRepo().costs().first()
+        assertEquals(80_000, c.thisMonth)
+        assertEquals(80_000, c.thisYear)
+        assertEquals(listOf("엔진오일", "블랙박스"), c.recent.map { it.name })
+    }
+
     @Test fun refillDoesNotResetLife() = runTest {
         repo.addRecord(rec(Part.ENGINE_OIL, RecordType.REPLACED, odo = 1000.0))
         repo.addRecord(rec(Part.ENGINE_OIL, RecordType.REFILLED, odo = 5000.0))

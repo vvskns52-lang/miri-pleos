@@ -1,6 +1,7 @@
 package com.chacare.ui
 
 import com.chacare.domain.intervalText
+import com.chacare.domain.wonText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -116,6 +117,10 @@ fun RecordRow(r: ServiceRecord, trailing: @Composable () -> Unit = {}) {
     ) {
         Text(r.type.label(), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary, modifier = Modifier.width(64.dp))
         Text("${r.date} · %,d km".format(r.odometerKm.coerceAtLeast(0.0).toLong()), fontSize = 18.sp, color = TextPrimary)
+        r.cost?.let {
+            Spacer(Modifier.width(16.dp))
+            Text(wonText(it), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+        }
         Spacer(Modifier.weight(1f))
         Text(r.source.label(), fontSize = 16.sp, color = TextSecondary)
         trailing()

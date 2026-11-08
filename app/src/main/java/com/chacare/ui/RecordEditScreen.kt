@@ -50,12 +50,14 @@ fun RecordEditScreen(
     var type by remember { mutableStateOf(RecordType.REPLACED) }
     var dateText by remember { mutableStateOf(today.toString()) }
     var kmText by remember { mutableStateOf(currentOdometerKm.toLong().toString()) }
+    var costText by remember { mutableStateOf("") }
 
     fun startEdit(r: ServiceRecord?) {
         editing = r
         type = r?.type ?: RecordType.REPLACED
         dateText = (r?.date ?: today).toString()
         kmText = (r?.odometerKm ?: currentOdometerKm).toLong().toString()
+        costText = r?.cost?.toString() ?: ""
     }
 
     val date = runCatching { LocalDate.parse(dateText) }.getOrNull()
@@ -83,11 +85,16 @@ fun RecordEditScreen(
                 label = { Text("주행거리 km") }, modifier = Modifier.width(180.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
+            OutlinedTextField(
+                costText, { costText = it.filter(Char::isDigit) }, enabled = parked, singleLine = true,
+                label = { Text("비용 원 (선택)") }, modifier = Modifier.width(180.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
             Button(
                 enabled = parked && date != null && km != null,
                 onClick = {
                     val base = editing ?: ServiceRecord(part = part, type = type, date = date!!, odometerKm = km!!, source = RecordSource.MANUAL)
-                    onSave(base.copy(type = type, date = date!!, odometerKm = km!!))
+                    onSave(base.copy(type = type, date = date!!, odometerKm = km!!, cost = costText.toLongOrNull()?.takeIf { it > 0 }))
                     startEdit(null)
                 },
             ) { Text(if (editing == null) "추가" else "저장", fontSize = 18.sp) }

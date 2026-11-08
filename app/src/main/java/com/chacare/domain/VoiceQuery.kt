@@ -49,16 +49,42 @@ private fun overview(estimates: List<LifeEstimate>): String {
     ).joinToString(" ")
 }
 
+/** "얼마 남았어"는 수명 질문이라 "얼마"만으로는 비용 질문으로 보지 않는다. */
+private val COST_WORDS = listOf("비용", "정비비", "돈", "썼", "들었")
+
+private fun costAnswer(text: String, names: List<String>, costs: CostSummary): String {
+    if (names.isNotEmpty()) return names.joinToString(" ") { name ->
+        val total = costs.recent.filter { it.name == name }.sumOf { it.won }
+        if (total == 0L) "${topic(name)} 적어 둔 비용이 없어요." else "${name}에 지금까지 쓴 비용은 ${copula(wonText(total))}."
+    }
+    if (costs.recent.isEmpty()) return "아직 적어 둔 정비 비용이 없어요. 교체 기록에 비용을 적어 주세요."
+    return when {
+        "올해" in text || "1년" in text || "일 년" in text -> "올해 정비 비용은 ${copula(wonText(costs.thisYear))}."
+        "이번 달" in text || "이번달" in text -> "이번 달 정비 비용은 ${copula(wonText(costs.thisMonth))}."
+        else -> "이번 달 정비 비용은 ${wonText(costs.thisMonth)}, 올해는 ${copula(wonText(costs.thisYear))}."
+    }
+}
+
 /**
  * 운전자가 말로 물은 것에 답한다.
  * 부품 이름이 있으면 그 부품의 남은 수명(또는 "주기"를 물으면 권장 주기), 없으면 전체 요약.
+ * 비용을 물으면([costs]가 있을 때) 적어 둔 정비 비용으로 답한다.
  */
-fun answerQuery(text: String?, estimates: List<LifeEstimate>, specs: List<PartSpec>, customs: List<CustomAnswer>): String {
+fun answerQuery(
+    text: String?,
+    estimates: List<LifeEstimate>,
+    specs: List<PartSpec>,
+    customs: List<CustomAnswer>,
+    costs: CostSummary? = null,
+): String {
     if (text.isNullOrBlank()) return NOT_UNDERSTOOD
     val parts = parseParts(text).sortedBy { it.ordinal }
     val customHits = customs.filter { mentions(it.name, text) }
     // 직접 추가한 부품 이름이 기본 부품 단어("필터" 등)를 포함하면 기본 부품으로 잘못 잡히지 않게 한다.
     val partsToAnswer = if (customHits.isNotEmpty()) parts.filter { p -> customHits.none { p.koreanName in it.name } } else parts
+    if (costs != null && COST_WORDS.any { it in text }) {
+        return costAnswer(text, partsToAnswer.map { it.koreanName } + customHits.map { it.name }, costs)
+    }
     val askingInterval = "주기" in text
     val answers = partsToAnswer.map { p ->
         partAnswer(estimates.firstOrNull { it.part == p }, p, specs.firstOrNull { it.part == p }, askingInterval)

@@ -73,7 +73,7 @@ fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, actions: DemoActions, on
             FilledTonalButton({ actions.runHvac(60) }) { Text("에어컨 60분", fontSize = 18.sp) }
         }
         Section("말로 물어보기 예시 (마이크 없이)") {
-            listOf("엔진오일 언제 갈아?", "뭐 갈아야 돼?", "에어컨 필터 교체 주기가 뭐야?", "브레이크 패드 어때?").forEach { q ->
+            listOf("엔진오일 언제 갈아?", "뭐 갈아야 돼?", "에어컨 필터 교체 주기가 뭐야?", "브레이크 패드 어때?", "정비비 얼마나 들었어?").forEach { q ->
                 FilledTonalButton({ actions.ask(q) }) { Text(q, fontSize = 18.sp) }
             }
         }

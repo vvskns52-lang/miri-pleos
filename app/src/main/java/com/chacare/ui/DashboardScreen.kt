@@ -62,6 +62,7 @@ fun DashboardScreen(
     onAddCustom: () -> Unit,
     onChangeVehicle: () -> Unit,
     onAsk: () -> Unit,
+    onCosts: () -> Unit,
     onSecretTap: () -> Unit,
 ) {
     var taps by remember { mutableIntStateOf(0) }
@@ -77,6 +78,10 @@ fun DashboardScreen(
                 Text(summary(estimates, customs), color = TextSecondary, fontSize = 20.sp)
             }
             Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onCosts, enabled = parked, shape = RoundedCornerShape(50)) {
+                Text("정비 비용", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(12.dp))
             // 말로 주고받으므로 주행 중에도 누를 수 있게 둔다.
             Button(onClick = onAsk, shape = RoundedCornerShape(50)) {
                 Text("말로 물어보기", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)

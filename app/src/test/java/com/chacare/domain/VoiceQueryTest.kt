@@ -45,6 +45,32 @@ class VoiceQueryTest {
         answerQuery("블랙박스 메모리 언제 바꿨지", all, specs, listOf(CustomAnswer("블랙박스 메모리", "마지막으로 2026-05-01에 교체했어요"))),
     )
 
+    private val costs = summarizeCosts(
+        listOf(
+            CostEntry(java.time.LocalDate.of(2026, 11, 2), "엔진오일", 80_000),
+            CostEntry(java.time.LocalDate.of(2026, 3, 15), "엔진오일", 75_000),
+            CostEntry(java.time.LocalDate.of(2026, 1, 10), "타이어", 600_000),
+        ),
+        java.time.LocalDate.of(2026, 11, 8),
+    )
+    private fun askCost(q: String) = answerQuery(q, all, specs, emptyList(), costs)
+
+    @Test fun costOverview() =
+        assertEquals("이번 달 정비 비용은 80,000원, 올해는 755,000원이에요.", askCost("정비비 얼마나 들었어?"))
+
+    @Test fun costThisYear() = assertEquals("올해 정비 비용은 755,000원이에요.", askCost("올해 정비 비용"))
+
+    @Test fun costForPart() = assertEquals("엔진오일에 지금까지 쓴 비용은 155,000원이에요.", askCost("엔진오일 비용 얼마 썼어"))
+
+    @Test fun costForPartWithoutRecords() = assertEquals("브레이크 패드는 적어 둔 비용이 없어요.", askCost("브레이크 패드 비용"))
+
+    @Test fun noCostsYet() = assertEquals(
+        "아직 적어 둔 정비 비용이 없어요. 교체 기록에 비용을 적어 주세요.",
+        answerQuery("정비비 얼마야", all, specs, emptyList(), summarizeCosts(emptyList(), java.time.LocalDate.of(2026, 11, 8))),
+    )
+
+    @Test fun howMuchLeftIsNotCost() = assertEquals("엔진오일은 교체까지 약 4,000km, 약 4개월 남았어요.", askCost("엔진오일 얼마 남았어"))
+
     @Test fun didNotUnderstand() {
         val expected = "잘 못 알아들었어요. '엔진오일 언제 갈아?'처럼 물어봐 주세요."
         assertEquals(expected, ask("오늘 날씨 좋다"))

@@ -1,6 +1,7 @@
 package com.chacare.ui
 
 import com.chacare.domain.intervalText
+import com.chacare.domain.wonText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -41,7 +42,10 @@ data class NewCustomPart(
     val lastDate: LocalDate?,
     val lastKm: Double?,
     val memo: String,
+    val lastCost: Long?,
 )
+
+private fun parseCost(text: String) = text.toLongOrNull()?.takeIf { it > 0 }
 
 @Composable
 private fun NumberField(value: String, onValue: (String) -> Unit, label: String, width: Int = 200) {
@@ -60,6 +64,7 @@ fun CustomAddScreen(currentOdometerKm: Double, today: LocalDate, parked: Boolean
     var date by remember { mutableStateOf(today.toString()) }
     var odo by remember { mutableStateOf(currentOdometerKm.toLong().toString()) }
     var memo by remember { mutableStateOf("") }
+    var cost by remember { mutableStateOf("") }
     val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull()
 
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
@@ -85,6 +90,7 @@ fun CustomAddScreen(currentOdometerKm: Double, today: LocalDate, parked: Boolean
                     OutlinedTextField(date, { date = it }, singleLine = true, isError = date.isNotBlank() && parsedDate == null, label = { Text("날짜 (YYYY-MM-DD)") }, modifier = Modifier.width(220.dp))
                     NumberField(odo, { odo = it }, "그때 주행거리 km")
                     OutlinedTextField(memo, { memo = it }, singleLine = true, label = { Text("메모") }, modifier = Modifier.width(260.dp))
+                    NumberField(cost, { cost = it }, "비용 원 (선택)", 180)
                 }
                 Button(
                     enabled = parked && name.isNotBlank() && (date.isBlank() || parsedDate != null),
@@ -92,7 +98,7 @@ fun CustomAddScreen(currentOdometerKm: Double, today: LocalDate, parked: Boolean
                         onSave(
                             NewCustomPart(
                                 name, km.toIntOrNull()?.takeIf { it > 0 }, months.toIntOrNull()?.takeIf { it > 0 },
-                                parsedDate, odo.toDoubleOrNull(), memo,
+                                parsedDate, odo.toDoubleOrNull(), memo, parseCost(cost),
                             ),
                         )
                     },
@@ -111,13 +117,14 @@ fun CustomDetailScreen(
     today: LocalDate,
     parked: Boolean,
     onBack: () -> Unit,
-    onAddRecord: (LocalDate, Double, String) -> Unit,
+    onAddRecord: (LocalDate, Double, String, Long?) -> Unit,
     onDeleteRecord: (Long) -> Unit,
     onDeletePart: () -> Unit,
 ) {
     var date by remember { mutableStateOf(today.toString()) }
     var odo by remember { mutableStateOf(currentOdometerKm.toLong().toString()) }
     var memo by remember { mutableStateOf("") }
+    var cost by remember { mutableStateOf("") }
     var confirmDelete by remember { mutableStateOf(false) }
     val parsedDate = runCatching { LocalDate.parse(date) }.getOrNull()
     val p = estimate.part
@@ -158,9 +165,10 @@ fun CustomDetailScreen(
                     OutlinedTextField(date, { date = it }, singleLine = true, enabled = parked, isError = parsedDate == null, label = { Text("날짜 (YYYY-MM-DD)") }, modifier = Modifier.width(220.dp))
                     NumberField(odo, { odo = it }, "주행거리 km", 180)
                     OutlinedTextField(memo, { memo = it }, singleLine = true, enabled = parked, label = { Text("메모") }, modifier = Modifier.width(240.dp))
+                    NumberField(cost, { cost = it }, "비용 원 (선택)", 170)
                     Button(
                         enabled = parked && parsedDate != null && odo.toDoubleOrNull() != null,
-                        onClick = { onAddRecord(parsedDate!!, odo.toDouble(), memo); memo = "" },
+                        onClick = { onAddRecord(parsedDate!!, odo.toDouble(), memo, parseCost(cost)); memo = ""; cost = "" },
                     ) { Text("추가", fontSize = 18.sp) }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -175,6 +183,7 @@ fun CustomDetailScreen(
                         ) {
                             Text("${r.date} · %,d km".format(r.odometerKm.coerceAtLeast(0.0).toLong()), fontSize = 18.sp, color = TextPrimary)
                             Spacer(Modifier.width(16.dp))
+                            r.cost?.let { Text(wonText(it), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary); Spacer(Modifier.width(16.dp)) }
                             Text(r.memo, fontSize = 17.sp, color = TextSecondary, modifier = Modifier.weight(1f))
                             TextButton(onClick = { onDeleteRecord(r.id) }, enabled = parked) { Text("삭제", color = ReplaceColor) }
                         }

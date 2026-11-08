@@ -62,6 +62,7 @@ private sealed interface Screen {
     data object Vehicle : Screen
     data object CustomAdd : Screen
     data class CustomDetail(val id: Long) : Screen
+    data object Costs : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -139,8 +140,13 @@ private fun App(graph: AppGraph) {
                     onAddCustom = { screen = Screen.CustomAdd },
                     onChangeVehicle = { screen = Screen.Vehicle },
                     onAsk = { graph.ask() },
+                    onCosts = { screen = Screen.Costs },
                     onSecretTap = { screen = Screen.Demo },
                 )
+                Screen.Costs -> {
+                    val costs by remember { repo.costs() }.collectAsState(initial = null)
+                    CostScreen(costs, parked, onBack = { screen = Screen.Dashboard })
+                }
                 is Screen.Detail -> {
                     val records by remember(s.part) { repo.records(s.part) }.collectAsState(initial = emptyList())
                     val factor by remember(s.part) { repo.factor(s.part) }.collectAsState(initial = 1.0)
@@ -160,7 +166,7 @@ private fun App(graph: AppGraph) {
                     onSave = { n ->
                         scope.launch {
                             val id = repo.addCustomPart(n.name, n.intervalKm, n.intervalMonths)
-                            if (n.lastDate != null) repo.addCustomRecord(id, n.lastDate, n.lastKm ?: 0.0, n.memo)
+                            if (n.lastDate != null) repo.addCustomRecord(id, n.lastDate, n.lastKm ?: 0.0, n.memo, n.lastCost)
                             screen = Screen.CustomDetail(id)
                         }
                     },
@@ -171,7 +177,7 @@ private fun App(graph: AppGraph) {
                         CustomDetailScreen(
                             c, records, odometer ?: 0.0, graph.today(), parked,
                             onBack = { screen = Screen.Dashboard },
-                            onAddRecord = { d, km, memo -> scope.launch { repo.addCustomRecord(s.id, d, km, memo) } },
+                            onAddRecord = { d, km, memo, cost -> scope.launch { repo.addCustomRecord(s.id, d, km, memo, cost) } },
                             onDeleteRecord = { id -> scope.launch { repo.deleteCustomRecord(id) } },
                             onDeletePart = { scope.launch { repo.deleteCustomPart(s.id); screen = Screen.Dashboard } },
                         )

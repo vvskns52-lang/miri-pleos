@@ -1,6 +1,9 @@
 package com.chacare.data
 
 import com.chacare.domain.AlertRecord
+import com.chacare.domain.CostEntry
+import com.chacare.domain.CostSummary
+import com.chacare.domain.summarizeCosts
 import com.chacare.domain.DwellState
 import com.chacare.domain.LastService
 import com.chacare.domain.LifeEstimate
@@ -49,6 +52,8 @@ data class ServiceRecord(
     @Serializable(with = LocalDateSerializer::class) val date: LocalDate,
     val odometerKm: Double,
     val source: RecordSource,
+    /** 원 단위. 음성으로 기록한 교체는 비어 있고, 기록 고치기에서 적는다. */
+    val cost: Long? = null,
 )
 
 /** 목록에 없는 부품을 사용자가 직접 추가한 것. 주기가 없으면 교체 기록만 남긴다. */
@@ -62,6 +67,7 @@ data class CustomRecord(
     @Serializable(with = LocalDateSerializer::class) val date: LocalDate,
     val odometerKm: Double,
     val memo: String = "",
+    val cost: Long? = null,
 )
 
 /** [status]가 null이면 주기 없이 기록만 하는 항목. */
@@ -256,8 +262,8 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
 
     suspend fun customParts(): List<CustomPart> = state.value.customParts
 
-    suspend fun addCustomRecord(customId: Long, date: LocalDate, odometerKm: Double, memo: String) = update { s ->
-        s.copy(nextId = s.nextId + 1, customRecords = s.customRecords + CustomRecord(s.nextId, customId, date, odometerKm, memo.trim()))
+    suspend fun addCustomRecord(customId: Long, date: LocalDate, odometerKm: Double, memo: String, cost: Long? = null) = update { s ->
+        s.copy(nextId = s.nextId + 1, customRecords = s.customRecords + CustomRecord(s.nextId, customId, date, odometerKm, memo.trim(), cost))
     }
 
     suspend fun deleteCustomRecord(id: Long) = update { s -> s.copy(customRecords = s.customRecords.filterNot { it.id == id }) }
@@ -272,6 +278,16 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
             val life = lifeOf(p.intervalKm, p.intervalMonths, last?.let { LastService(it.date, it.odometerKm) }, odo, today(), 1.0)
             CustomEstimate(p, life?.status, life?.remainingRatio, life?.remainingKm, life?.remainingMonths, last)
         }
+    }
+
+    // --- 정비 비용 ---
+
+    /** 비용을 적은 기록만 모아 이번 달·올해·월별로 합친다. 직접 추가한 부품은 그 이름으로 묶인다. */
+    fun costs(): Flow<CostSummary> = state.map { s ->
+        val names = s.customParts.associate { it.id to it.name }
+        val entries = s.records.mapNotNull { r -> r.cost?.let { CostEntry(r.date, r.part.koreanName, it) } } +
+            s.customRecords.mapNotNull { r -> r.cost?.let { CostEntry(r.date, names[r.customId] ?: "직접 추가", it) } }
+        summarizeCosts(entries, today())
     }
 
     suspend fun onboarded(): Boolean = state.value.onboarded
