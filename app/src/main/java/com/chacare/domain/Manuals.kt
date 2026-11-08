@@ -1,15 +1,16 @@
 package com.chacare.domain
 
 /**
- * 차종별 권장 주기 — 현대·기아·제네시스 공식 한국어 취급설명서 「서비스 점검 주기 · 통상 조건」 표 기준.
+ * 차종별 권장 주기 — 현대·기아·제네시스 공식 한국어 취급설명서 「서비스 점검 주기」 표 기준.
  *
  * 출처(2026-11 확인, 차종별 최신 연식):
  *  - https://ownersmanual.hyundai.com  (KOREA · 한국어)
  *  - https://ownersmanual.kia.com      (Korea · 한국어)
  *  - https://ownersmanual.genesis.com  (KOREA · 한국어)
  *
- * 모든 차종 표에 공통인 항목(브레이크액·에어클리너·냉각수·패드 등)은 [COMMON_ENGINE]/[COMMON_EV]에,
- * 차종마다 다른 항목(엔진오일·점화플러그·공조 필터·벨트·배터리)은 [MODELS]의 각 매뉴얼에 적는다.
+ * 「통상 조건」: 모든 차종 표에 공통인 항목은 [COMMON_ENGINE]/[COMMON_EV]에, 차종마다 다른 항목
+ * (엔진오일·점화플러그·공조 필터·벨트·배터리)은 [MODELS]의 각 매뉴얼에 적는다.
+ * 「가혹 조건」: 표의 "해당 조건" 번호 중 차가 알아챌 수 있는 것([SevereReason])이 걸린 항목만 [ManualRef.severe]에 적는다.
  * 매뉴얼이 개정되면 이 파일의 값만 고치면 된다.
  */
 enum class IntervalKind { REPLACE, INSPECT, NONE }
@@ -24,7 +25,13 @@ data class Interval(
 enum class Brand(val label: String) { HYUNDAI("현대"), KIA("기아"), GENESIS("제네시스") }
 
 /** 취급설명서 하나(차종 코드·연식)와 그 표에서 읽은 차종별 값. */
-data class ManualRef(val code: String, val year: Int, val specific: Map<Part, Interval>) {
+data class ManualRef(
+    val code: String,
+    val year: Int,
+    val specific: Map<Part, Interval>,
+    /** 「가혹 조건」 표 중 차가 알아챌 수 있는 조건이 걸린 항목만. */
+    val severe: Map<Part, SevereInterval> = emptyMap(),
+) {
     val label get() = "$code $year"
 }
 
@@ -49,7 +56,17 @@ private val BATTERY_DAILY = none("교체 주기 없음 · 상태를 수시로 �
 private val BATTERY_12K = inspect(12_000, 12)
 private val BATTERY_10K = inspect(10_000, 12)
 private fun hsgBelt(km: Int) = replace(km, 48, "하이브리드 스타트&제너레이터(HSG) 구동벨트")
-private val NOT_IN_MANUAL = "취급설명서에 주기 없음"
+
+private val ALL_REASONS = SevereReason.entries.toSet()
+private val TRAFFIC = setOf(SevereReason.CONGESTION, SevereReason.STOP_AND_GO)
+private fun oilSevere(km: Int) = Part.ENGINE_OIL to SevereInterval(replace(km, 6), ALL_REASONS)
+private fun atfSevere(reasons: Set<SevereReason> = ALL_REASONS) =
+    Part.TRANSMISSION_OIL to SevereInterval(replace(100_000), reasons)
+private fun beltSevere(km: Int, reasons: Set<SevereReason> = TRAFFIC) =
+    Part.DRIVE_BELT to SevereInterval(replace(km, 24, "하이브리드 구동벨트"), reasons)
+private fun reducerSevere(reasons: Set<SevereReason>) = Part.REDUCER_OIL to SevereInterval(replace(120_000), reasons)
+private fun severe(vararg e: Pair<Part, SevereInterval>) = mapOf(*e)
+private const val NOT_IN_MANUAL = "취급설명서에 주기 없음"
 
 /** 엔진 차(가솔린·하이브리드) 취급설명서에 공통으로 나오는 값. */
 private val COMMON_ENGINE: Map<Part, Interval> = linkedMapOf(
@@ -86,110 +103,143 @@ private val GENERIC_EV: Map<Part, Interval> = linkedMapOf(
     Part.CABIN_FILTER to CABIN_12M,
     Part.BATTERY to BATTERY_10K,
 )
+private val GENERIC_ENGINE_SEVERE = severe(oilSevere(5_000), atfSevere())
 
-private fun gas(code: String, year: Int, oilKm: Int, plugKm: Int, cabin: Interval = CABIN_12M, battery: Interval = BATTERY_DAILY, belt: Interval = BELT_INSPECT) =
-    ManualRef(code, year, linkedMapOf(
+private fun gas(
+    code: String, year: Int, oilKm: Int, plugKm: Int,
+    cabin: Interval = CABIN_12M, battery: Interval = BATTERY_DAILY, belt: Interval = BELT_INSPECT,
+    severe: Map<Part, SevereInterval> = emptyMap(),
+) = ManualRef(
+    code, year,
+    linkedMapOf(
         Part.ENGINE_OIL to replace(oilKm, 12), Part.SPARK_PLUG to replace(plugKm),
         Part.CABIN_FILTER to cabin, Part.DRIVE_BELT to belt, Part.BATTERY to battery,
-    ))
+    ),
+    severe,
+)
 
-private fun ev(code: String, year: Int, battery: Interval = BATTERY_10K, cabin: Interval = CABIN_12M) =
-    ManualRef(code, year, linkedMapOf(Part.CABIN_FILTER to cabin, Part.BATTERY to battery))
+private fun ev(code: String, year: Int, battery: Interval = BATTERY_10K, cabin: Interval = CABIN_12M, severe: Map<Part, SevereInterval> = emptyMap()) =
+    ManualRef(code, year, linkedMapOf(Part.CABIN_FILTER to cabin, Part.BATTERY to battery), severe)
 
 private val ICE = Powertrain.ICE
 private val HEV = Powertrain.HYBRID
 private val EV = Powertrain.EV
+private val SHORT_STOP = setOf(SevereReason.SHORT_TRIPS, SevereReason.STOP_AND_GO)
+private val SHORT_TRAFFIC = setOf(SevereReason.SHORT_TRIPS, SevereReason.CONGESTION)
 
 val MODELS: List<VehicleModel> = listOf(
     // 현대
     VehicleModel("casper", Brand.HYUNDAI, "캐스퍼", mapOf(
-        ICE to gas("AX", 2027, 15_000, 160_000, belt = none("일상 점검 · 교체 주기 없음")),
+        ICE to gas("AX", 2027, 15_000, 160_000, belt = none("일상 점검 · 교체 주기 없음"), severe = severe(oilSevere(7_500), atfSevere())),
         EV to ev("AXEV", 2027))),
     VehicleModel("avante", Brand.HYUNDAI, "아반떼", mapOf(
-        ICE to gas("CN8", 2027, 15_000, 150_000),
-        HEV to gas("CN8KH", 2027, 15_000, 75_000, belt = hsgBelt(105_000)))),
+        ICE to gas("CN8", 2027, 15_000, 150_000, severe = severe(oilSevere(7_500), atfSevere(SHORT_STOP))),
+        HEV to gas("CN8KH", 2027, 15_000, 75_000, belt = hsgBelt(105_000),
+            severe = severe(oilSevere(7_500), beltSevere(45_000, setOf(SevereReason.STOP_AND_GO)))))),
     VehicleModel("sonata", Brand.HYUNDAI, "쏘나타", mapOf(
-        ICE to gas("DN8", 2026, 15_000, 165_000),
-        HEV to gas("DN8HEV", 2026, 15_000, 165_000, belt = hsgBelt(105_000)))),
+        ICE to gas("DN8", 2026, 15_000, 165_000, severe = severe(oilSevere(7_500), atfSevere())),
+        HEV to gas("DN8HEV", 2026, 15_000, 165_000, belt = hsgBelt(105_000), severe = severe(oilSevere(7_500), atfSevere())))),
     VehicleModel("grandeur", Brand.HYUNDAI, "그랜저", mapOf(
-        ICE to gas("GN7", 2027, 15_000, 160_000),
-        HEV to gas("GN7HEV", 2027, 10_000, 75_000))),
+        ICE to gas("GN7", 2027, 15_000, 160_000, severe = severe(oilSevere(7_500), atfSevere())),
+        HEV to gas("GN7HEV", 2027, 10_000, 75_000, severe = severe(oilSevere(5_000), atfSevere())))),
     VehicleModel("kona", Brand.HYUNDAI, "코나", mapOf(
-        ICE to gas("SX2", 2027, 10_000, 75_000),
-        HEV to gas("SX2HEV", 2027, 15_000, 75_000, belt = hsgBelt(105_000)),
-        EV to ev("SX2EV", 2025))),
+        ICE to gas("SX2", 2027, 10_000, 75_000, severe = severe(oilSevere(5_000), atfSevere())),
+        HEV to gas("SX2HEV", 2027, 15_000, 75_000, belt = hsgBelt(105_000), severe = severe(oilSevere(7_500), beltSevere(45_000))),
+        EV to ev("SX2EV", 2025, severe = severe(reducerSevere(SHORT_TRAFFIC))))),
     VehicleModel("tucson", Brand.HYUNDAI, "투싼", mapOf(
-        ICE to gas("NX5", 2027, 10_000, 75_000, cabin = CABIN_12M_INSPECT, battery = BATTERY_12K),
-        HEV to gas("NX5KP", 2027, 10_000, 75_000, belt = replace(100_000, 48, "워터펌프 구동벨트")))),
+        ICE to gas("NX5", 2027, 10_000, 75_000, cabin = CABIN_12M_INSPECT, battery = BATTERY_12K, severe = severe(oilSevere(5_000), atfSevere())),
+        HEV to gas("NX5KP", 2027, 10_000, 75_000, belt = replace(100_000, 48, "워터펌프 구동벨트"),
+            severe = severe(oilSevere(5_000), atfSevere(), beltSevere(50_000))))),
     VehicleModel("santafe", Brand.HYUNDAI, "싼타페", mapOf(
-        ICE to gas("MX5", 2026, 10_000, 70_000, battery = BATTERY_12K),
-        HEV to gas("MX5HEV", 2026, 10_000, 75_000, battery = BATTERY_12K, belt = hsgBelt(100_000)))),
+        ICE to gas("MX5", 2026, 10_000, 70_000, battery = BATTERY_12K, severe = severe(oilSevere(5_000), atfSevere())),
+        HEV to gas("MX5HEV", 2026, 10_000, 75_000, battery = BATTERY_12K, belt = hsgBelt(100_000), severe = severe(oilSevere(5_000), atfSevere())))),
     VehicleModel("palisade", Brand.HYUNDAI, "팰리세이드", mapOf(
-        ICE to gas("LX3", 2027, 10_000, 160_000, cabin = CABIN_12M_INSPECT, battery = BATTERY_12K),
-        HEV to gas("LX3HEV", 2027, 10_000, 160_000, cabin = CABIN_12M_INSPECT))),
+        ICE to gas("LX3", 2027, 10_000, 160_000, cabin = CABIN_12M_INSPECT, battery = BATTERY_12K, severe = severe(oilSevere(5_000), atfSevere())),
+        HEV to gas("LX3HEV", 2027, 10_000, 160_000, cabin = CABIN_12M_INSPECT, severe = severe(oilSevere(5_000), atfSevere())))),
     VehicleModel("staria", Brand.HYUNDAI, "스타리아", mapOf(
-        ICE to gas("US4", 2026, 15_000, 160_000, cabin = CABIN_12M_INSPECT),
-        HEV to gas("US4HEV", 2026, 10_000, 75_000, belt = hsgBelt(100_000)))),
+        ICE to gas("US4", 2026, 15_000, 160_000, cabin = CABIN_12M_INSPECT, severe = severe(oilSevere(7_500), atfSevere())),
+        HEV to gas("US4HEV", 2026, 10_000, 75_000, belt = hsgBelt(100_000), severe = severe(oilSevere(5_000), atfSevere(SHORT_TRAFFIC))))),
     VehicleModel("ioniq5", Brand.HYUNDAI, "아이오닉 5", mapOf(EV to ev("NE1", 2027, battery = BATTERY_12K))),
     VehicleModel("ioniq6", Brand.HYUNDAI, "아이오닉 6", mapOf(EV to ev("CE1", 2025))),
     VehicleModel("ioniq9", Brand.HYUNDAI, "아이오닉 9", mapOf(EV to ev("ME", 2027, cabin = replace(15_000, 12)))),
     // 기아
-    VehicleModel("morning", Brand.KIA, "모닝", mapOf(ICE to gas("JA", 2027, 15_000, 150_000, cabin = CABIN_KIA))),
+    VehicleModel("morning", Brand.KIA, "모닝", mapOf(
+        ICE to gas("JA", 2027, 15_000, 150_000, cabin = CABIN_KIA, severe = severe(oilSevere(7_500), atfSevere())))),
     VehicleModel("ray", Brand.KIA, "레이", mapOf(
-        ICE to gas("TAM", 2027, 15_000, 160_000, cabin = CABIN_KIA),
+        ICE to gas("TAM", 2027, 15_000, 160_000, cabin = CABIN_KIA, severe = severe(oilSevere(7_500), atfSevere())),
         EV to ev("TAMEV", 2027, battery = BATTERY_12K, cabin = CABIN_KIA))),
     VehicleModel("k5", Brand.KIA, "K5", mapOf(
-        ICE to gas("DL3", 2027, 15_000, 150_000, cabin = CABIN_KIA),
-        HEV to gas("DL3KH", 2027, 15_000, 150_000, cabin = CABIN_KIA, belt = hsgBelt(105_000)))),
+        ICE to gas("DL3", 2027, 15_000, 150_000, cabin = CABIN_KIA, severe = severe(oilSevere(7_500), atfSevere())),
+        HEV to gas("DL3KH", 2027, 15_000, 150_000, cabin = CABIN_KIA, belt = hsgBelt(105_000),
+            severe = severe(oilSevere(7_500), atfSevere(), beltSevere(45_000))))),
     VehicleModel("k8", Brand.KIA, "K8", mapOf(
-        ICE to gas("GL3", 2027, 15_000, 150_000, cabin = CABIN_KIA),
-        HEV to gas("GL3KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000)))),
-    VehicleModel("seltos", Brand.KIA, "셀토스", mapOf(ICE to gas("SP2", 2026, 10_000, 70_000, cabin = CABIN_KIA))),
+        ICE to gas("GL3", 2027, 15_000, 150_000, cabin = CABIN_KIA, severe = severe(oilSevere(7_500), atfSevere())),
+        HEV to gas("GL3KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000),
+            severe = severe(oilSevere(5_000), atfSevere(), beltSevere(50_000))))),
+    VehicleModel("seltos", Brand.KIA, "셀토스", mapOf(
+        ICE to gas("SP2", 2026, 10_000, 70_000, cabin = CABIN_KIA, severe = severe(oilSevere(5_000), atfSevere())))),
     VehicleModel("sportage", Brand.KIA, "스포티지", mapOf(
-        ICE to gas("NQ5", 2027, 10_000, 70_000, cabin = CABIN_KIA),
-        HEV to gas("NQ5KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000)))),
+        ICE to gas("NQ5", 2027, 10_000, 70_000, cabin = CABIN_KIA, severe = severe(oilSevere(5_000), atfSevere())),
+        HEV to gas("NQ5KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000),
+            severe = severe(oilSevere(5_000), atfSevere(), beltSevere(50_000))))),
     VehicleModel("sorento", Brand.KIA, "쏘렌토", mapOf(
-        ICE to gas("MQ4", 2027, 10_000, 70_000, cabin = CABIN_KIA),
-        HEV to gas("MQ4KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000)))),
+        ICE to gas("MQ4", 2027, 10_000, 70_000, cabin = CABIN_KIA, severe = severe(oilSevere(5_000))),
+        HEV to gas("MQ4KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000),
+            severe = severe(oilSevere(5_000), atfSevere(), beltSevere(50_000))))),
     VehicleModel("carnival", Brand.KIA, "카니발", mapOf(
-        ICE to gas("KA4", 2027, 15_000, 150_000, cabin = CABIN_KIA),
-        HEV to gas("KA4KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000)))),
+        ICE to gas("KA4", 2027, 15_000, 150_000, cabin = CABIN_KIA, severe = severe(oilSevere(7_500), atfSevere())),
+        HEV to gas("KA4KH", 2027, 10_000, 70_000, cabin = CABIN_KIA, belt = hsgBelt(100_000),
+            severe = severe(oilSevere(5_000), atfSevere(), beltSevere(50_000))))),
     VehicleModel("ev3", Brand.KIA, "EV3", mapOf(EV to ev("SV1", 2027, battery = BATTERY_12K, cabin = CABIN_KIA))),
     VehicleModel("ev4", Brand.KIA, "EV4", mapOf(EV to ev("CT1", 2027, battery = BATTERY_12K, cabin = CABIN_KIA))),
     VehicleModel("ev6", Brand.KIA, "EV6", mapOf(EV to ev("CV1", 2027, battery = BATTERY_12K, cabin = CABIN_KIA))),
     VehicleModel("ev9", Brand.KIA, "EV9", mapOf(EV to ev("MV1", 2027, battery = BATTERY_12K, cabin = CABIN_KIA))),
-    // 제네시스
-    VehicleModel("g70", Brand.GENESIS, "G70", mapOf(ICE to gas("IK", 2026, 10_000, 80_000))),
+    // 제네시스: 엔진오일 가혹 조건(택시·한랭지·견인·비추천 오일)은 차가 알 수 없어 변속기 오일만 해당
+    VehicleModel("g70", Brand.GENESIS, "G70", mapOf(ICE to gas("IK", 2026, 10_000, 80_000, severe = severe(atfSevere())))),
     VehicleModel("g80", Brand.GENESIS, "G80", mapOf(
-        ICE to gas("RG3", 2027, 10_000, 70_000, battery = BATTERY_12K),
-        EV to ev("RG3EV", 2027))),
-    VehicleModel("g90", Brand.GENESIS, "G90", mapOf(ICE to gas("RS4", 2027, 10_000, 80_000))),
+        ICE to gas("RG3", 2027, 10_000, 70_000, battery = BATTERY_12K, severe = severe(atfSevere())),
+        EV to ev("RG3EV", 2027, severe = severe(reducerSevere(ALL_REASONS))))),
+    VehicleModel("g90", Brand.GENESIS, "G90", mapOf(ICE to gas("RS4", 2027, 10_000, 80_000, severe = severe(atfSevere())))),
     VehicleModel("gv60", Brand.GENESIS, "GV60", mapOf(EV to ev("JW", 2027))),
     VehicleModel("gv70", Brand.GENESIS, "GV70", mapOf(
-        ICE to gas("JK", 2027, 10_000, 80_000),
+        ICE to gas("JK", 2027, 10_000, 80_000, severe = severe(atfSevere())),
         EV to ev("JKEV", 2027))),
-    VehicleModel("gv80", Brand.GENESIS, "GV80", mapOf(ICE to gas("JX", 2026, 10_000, 80_000, battery = BATTERY_12K))),
+    VehicleModel("gv80", Brand.GENESIS, "GV80", mapOf(
+        ICE to gas("JX", 2026, 10_000, 80_000, battery = BATTERY_12K, severe = severe(atfSevere())))),
 )
 
 fun findModel(id: String?): VehicleModel? = MODELS.firstOrNull { it.id == id }
 
-/** 차종 매뉴얼 값이 우선, 없으면 공통값, 차종을 모르면 보수적 기본값. */
-fun intervalsFor(powertrain: Powertrain, model: VehicleModel?): Map<Part, Interval> {
-    val common = if (powertrain == Powertrain.EV) COMMON_EV else COMMON_ENGINE
-    val specific = model?.manuals?.get(powertrain)?.specific
-        ?: if (powertrain == Powertrain.EV) GENERIC_EV else GENERIC_ENGINE
-    return common + specific
+/** 적용될 주기와, 가혹 조건 주기라면 그 원인. */
+data class AppliedInterval(val interval: Interval, val severeBy: Set<SevereReason> = emptySet())
+
+/**
+ * 차종 매뉴얼 값이 우선, 없으면 공통값, 차종을 모르면 보수적 기본값.
+ * [detected] 가혹 조건이 그 항목의 「해당 조건」에 걸리면 가혹 조건 주기로 바꾼다.
+ */
+fun intervalsFor(powertrain: Powertrain, model: VehicleModel?, detected: Set<SevereReason> = emptySet()): Map<Part, AppliedInterval> {
+    val ev = powertrain == Powertrain.EV
+    val manual = model?.manuals?.get(powertrain)
+    val normal = (if (ev) COMMON_EV else COMMON_ENGINE) + (manual?.specific ?: if (ev) GENERIC_EV else GENERIC_ENGINE)
+    val severeTable = manual?.severe ?: if (ev) emptyMap() else GENERIC_ENGINE_SEVERE
+    return normal.mapValues { (part, interval) ->
+        val s = severeTable[part]
+        val hit = s?.reasons?.intersect(detected).orEmpty()
+        if (s != null && hit.isNotEmpty()) AppliedInterval(s.interval, hit) else AppliedInterval(interval)
+    }
 }
 
 /** 상세 화면에 보여줄 근거 한 줄. */
-fun intervalSource(part: Part, model: VehicleModel?, powertrain: Powertrain): String {
+fun intervalSource(part: Part, model: VehicleModel?, powertrain: Powertrain, detected: Set<SevereReason> = emptySet()): String {
     val brand = model?.brand?.label ?: "현대·기아·제네시스"
-    val interval = intervalsFor(powertrain, model)[part]
+    val applied = intervalsFor(powertrain, model, detected)[part]
+    val interval = applied?.interval
     val manual = model?.manuals?.get(powertrain)
+    val condition = if (applied?.severeBy.isNullOrEmpty()) "통상 조건" else "가혹 조건"
     val base = when {
         interval?.note?.startsWith(NOT_IN_MANUAL) == true -> interval.note
-        manual == null -> "목록에 없는 차 · 현대·기아·제네시스 취급설명서 중 보수적인 값"
-        else -> "$brand ${model.name} 취급설명서 (${manual.label} · 통상 조건)"
+        manual == null -> "목록에 없는 차 · 현대·기아·제네시스 취급설명서 중 보수적인 값 ($condition)"
+        else -> "$brand ${model.name} 취급설명서 (${manual.label} · $condition)"
     }
     val note = interval?.note?.takeUnless { it.startsWith(NOT_IN_MANUAL) }
     return listOfNotNull(base, note).joinToString(" · ")
