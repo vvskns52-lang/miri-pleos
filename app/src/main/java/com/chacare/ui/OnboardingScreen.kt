@@ -45,14 +45,16 @@ private val KM_AGO_OPTIONS: List<Pair<String, Int?>> = listOf(
  * 2단계: 처음 설치하면 교체 이력을 모르므로 대략만 묻는다(설계서 5.3).
  */
 @Composable
-fun OnboardingScreen(onDone: (VehicleModel?, Powertrain, Map<Part, Int?>) -> Unit) {
+fun OnboardingScreen(onSecretTap: () -> Unit = {}, onDone: (VehicleModel?, Powertrain, Map<Part, Int?>) -> Unit) {
     var choice by remember { mutableStateOf(VehicleChoice()) }
     var step by remember { mutableStateOf(0) }
     val answers = remember { mutableStateMapOf<Part, Int?>() }
+    var taps by remember { mutableStateOf(0) }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
         if (step == 0) {
-            Column(Modifier.weight(1f)) { VehicleSelect(choice) { choice = it } }
+            // 제목을 5번 누르면 데모 차량으로 시작한다(대시보드 제목과 같은 숨김 동작, 시연용).
+            Column(Modifier.weight(1f)) { VehicleSelect(choice, onTitleTap = { if (++taps >= 5) { taps = 0; onSecretTap() } }) { choice = it } }
             Button(onClick = { step = 1 }, enabled = choice.complete) { Text("다음", fontSize = 20.sp) }
             return@Column
         }

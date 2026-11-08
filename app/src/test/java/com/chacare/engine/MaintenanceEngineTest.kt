@@ -67,9 +67,11 @@ class MaintenanceEngineTest {
 
     @Test fun sensorFlowRecordsReplacement() = runTest {
         val voice = FakeVoiceIO(listOf("응 교체했어"))
-        engine(voice)
+        val e = engine(voice)
         brakeFluidRecovered()
         vehicle.setParked(true); advanceUntilIdle()
+        // 화면 카드에도 질문과 들은 대답이 남는다.
+        assertEquals(QaState.Said(voice.spoken.first(), "응 교체했어"), e.qa.value)
         val r = repo.records(Part.BRAKE_FLUID).first().single()
         assertEquals(RecordType.REPLACED, r.type)
         assertEquals(RecordSource.SENSOR_VOICE, r.source)

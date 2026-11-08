@@ -14,6 +14,7 @@ import com.chacare.vehicle.DemoVehicleSignals
 import com.chacare.vehicle.PleosVehicleSignals
 import com.chacare.vehicle.VehicleSignals
 import com.chacare.voice.PleosVoiceIO
+import com.chacare.voice.ScriptedVoiceIO
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,7 +55,11 @@ class AppGraph(private val app: Application) {
     val demoLocation = DemoLocationSource().apply { moveTo(DEMO_HOME_LAT, DEMO_HOME_LON) }
     private val realVehicle by lazy { PleosVehicleSignals(app) }
     private val realLocation by lazy { PleosLocationSource(app) }
-    private val voice by lazy { PleosVoiceIO(app) }
+    /** 시연 패널에서 고른 "다음 대답"(마이크 없는 에뮬레이터용). */
+    private val nextAnswerState = MutableStateFlow<String?>(null)
+    val nextAnswer: StateFlow<String?> = nextAnswerState
+    fun setNextAnswer(text: String?) { nextAnswerState.value = text }
+    private val voice by lazy { ScriptedVoiceIO(PleosVoiceIO(app), nextAnswerState) }
 
     /** 엔진 내부 상태는 한 스레드에서만 다룬다. */
     private val engineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default.limitedParallelism(1))
@@ -85,7 +90,12 @@ class AppGraph(private val app: Application) {
     private suspend fun restart(demo: Boolean) {
         engine?.stop()
         // 가짜 차 주행거리가 저장된 값과 어긋나면 그 차이가 통째로 운행 기록에 쌓이므로 맞춰 둔다.
-        if (demo) demoVehicle.setOdometer(repo.lastOdometer() ?: 30_000.0)
+        // 에뮬레이터의 실제 차량 값은 0km라, 0이면 데모 기본값으로 시작하고 저장해 둔다.
+        if (demo) {
+            val start = repo.lastOdometer()?.takeIf { it > 0 } ?: 30_000.0
+            demoVehicle.setOdometer(start)
+            repo.saveOdometer(start)
+        }
         val vehicle = if (demo) demoVehicle else realVehicle
         val location = if (demo) demoLocation else realLocation
         currentVehicle.value = vehicle

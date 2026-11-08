@@ -30,7 +30,10 @@ fun QaPanel(state: QaState, onClose: () -> Unit, modifier: Modifier = Modifier) 
             .background(Color.White).padding(horizontal = 28.dp, vertical = 20.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("말로 물어보기", fontSize = 16.sp, color = Accent, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(
+                if (state is QaState.Said) "미리 음성 안내" else "말로 물어보기",
+                fontSize = 16.sp, color = Accent, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f),
+            )
             TextButton(onClick = onClose) { Text("닫기", fontSize = 16.sp) }
         }
         when (state) {
@@ -39,6 +42,13 @@ fun QaPanel(state: QaState, onClose: () -> Unit, modifier: Modifier = Modifier) 
                 Text("“${state.question ?: "(잘 들리지 않았어요)"}”", fontSize = 18.sp, color = TextSecondary)
                 Spacer(Modifier.height(6.dp))
                 Text(state.answer, fontSize = 22.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold, lineHeight = 32.sp)
+            }
+            is QaState.Said -> {
+                Text(state.text, fontSize = 22.sp, color = TextPrimary, fontWeight = FontWeight.SemiBold, lineHeight = 32.sp)
+                state.reply?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text("운전자: “${it.ifEmpty { "(대답을 듣지 못했어요)" }}”", fontSize = 18.sp, color = TextSecondary)
+                }
             }
         }
     }

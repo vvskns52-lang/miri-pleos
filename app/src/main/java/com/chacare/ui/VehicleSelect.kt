@@ -1,6 +1,7 @@
 package com.chacare.ui
 
 import com.chacare.domain.intervalText
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -33,9 +34,12 @@ data class VehicleChoice(val brand: Brand = Brand.HYUNDAI, val model: VehicleMod
 /** "차종은 무엇인가요?" — 고른 차종 매뉴얼 기준으로 교환 주기가 정해진다. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun VehicleSelect(choice: VehicleChoice, onChange: (VehicleChoice) -> Unit) {
+fun VehicleSelect(choice: VehicleChoice, onTitleTap: () -> Unit = {}, onChange: (VehicleChoice) -> Unit) {
     Column {
-        Text("차종은 무엇인가요?", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(
+            "차종은 무엇인가요?", Modifier.clickable(onClick = onTitleTap),
+            fontSize = 30.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
+        )
         Spacer(Modifier.height(6.dp))
         Text("고른 차종의 매뉴얼 기준으로 소모품 교환 주기를 맞춰 드려요.", fontSize = 19.sp, color = TextSecondary)
         Spacer(Modifier.height(20.dp))

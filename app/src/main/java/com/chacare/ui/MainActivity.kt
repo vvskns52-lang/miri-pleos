@@ -120,6 +120,7 @@ private fun App(graph: AppGraph) {
     val qa by graph.qa.collectAsState()
     val warnings by graph.warnings.collectAsState()
     val demoLit by graph.demoVehicle.warningLights.collectAsState()
+    val nextAnswer by graph.nextAnswer.collectAsState()
 
     LaunchedEffect(Unit) { onboarded = repo.onboarded() }
 
@@ -128,7 +129,7 @@ private fun App(graph: AppGraph) {
         if (!parked && screen != Screen.Demo) DrivingBanner()
         when (onboarded) {
             null -> Unit
-            false -> OnboardingScreen { model, pt, kmAgo ->
+            false -> OnboardingScreen(onSecretTap = { scope.launch { repo.setDemoMode(true) } }) { model, pt, kmAgo ->
                 scope.launch {
                     finishOnboarding(graph, model, pt, kmAgo)
                     onboarded = true
@@ -201,7 +202,7 @@ private fun App(graph: AppGraph) {
                         onDelete = { id -> scope.launch { repo.deleteRecord(id) } },
                     )
                 }
-                Screen.Demo -> DemoPanelScreen(demoMode, parked, demoLit, demoActions(graph, scope), onBack = { screen = Screen.Dashboard })
+                Screen.Demo -> DemoPanelScreen(demoMode, parked, demoLit, nextAnswer, demoActions(graph, scope), onBack = { screen = Screen.Dashboard })
             }
         }
     }
@@ -285,5 +286,6 @@ private fun demoActions(graph: AppGraph, scope: CoroutineScope): DemoActions {
         newIgnition = graph::newIgnitionCycle,
         toggleWarning = car::toggleWarning,
         clearWarnings = { car.setWarnings(emptySet()) },
+        setNextAnswer = graph::setNextAnswer,
     )
 }

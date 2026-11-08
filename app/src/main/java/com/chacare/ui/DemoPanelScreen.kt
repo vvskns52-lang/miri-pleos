@@ -47,7 +47,10 @@ class DemoActions(
     val newIgnition: () -> Unit,
     val toggleWarning: (WarningLight) -> Unit,
     val clearWarnings: () -> Unit,
+    val setNextAnswer: (String?) -> Unit,
 )
+
+private val DEMO_ANSWERS = listOf("응 교체했어", "보충만 했어", "엔진오일이랑 에어 필터", "엔진오일 언제 갈아?", "올해 정비비 얼마야?")
 
 private val DEMO_WARNINGS = listOf(
     WarningLight.OIL_PRESSURE, WarningLight.ENGINE_TEMP, WarningLight.BRAKE,
@@ -56,7 +59,14 @@ private val DEMO_WARNINGS = listOf(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, lit: Set<WarningLight>, actions: DemoActions, onBack: () -> Unit) {
+fun DemoPanelScreen(
+    demoMode: Boolean,
+    parked: Boolean,
+    lit: Set<WarningLight>,
+    nextAnswer: String?,
+    actions: DemoActions,
+    onBack: () -> Unit,
+) {
     Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = onBack) { Text("← 대시보드", fontSize = 18.sp) }
@@ -84,6 +94,14 @@ fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, lit: Set<WarningLight>, 
         Section("말로 물어보기 예시 (마이크 없이)") {
             listOf("엔진오일 언제 갈아?", "뭐 갈아야 돼?", "에어컨 필터 교체 주기가 뭐야?", "브레이크 패드 어때?", "정비비 얼마나 들었어?", "경고등 켜졌는데 뭐야?").forEach { q ->
                 FilledTonalButton({ actions.ask(q) }) { Text(q, fontSize = 18.sp) }
+            }
+        }
+        Section("다음 음성 대답 (마이크 대신, 한 번만 쓰임)") {
+            DEMO_ANSWERS.forEach { a ->
+                FilterChip(
+                    selected = nextAnswer == a, onClick = { actions.setNextAnswer(if (nextAnswer == a) null else a) },
+                    label = { Text(a, fontSize = 18.sp, modifier = Modifier.padding(vertical = 8.dp)) },
+                )
             }
         }
         Section("경고등 켜기·끄기 (브레이크 경고등은 주행 중에만 안내)") {

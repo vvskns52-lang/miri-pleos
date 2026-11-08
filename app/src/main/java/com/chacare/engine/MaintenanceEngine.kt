@@ -51,6 +51,8 @@ import java.time.ZoneId
 sealed interface QaState {
     data object Listening : QaState
     data class Answered(val question: String?, val answer: String) : QaState
+    /** 앱이 먼저 말한 안내·질문과, 질문이었다면 들은 대답(못 들었으면 빈 문자열). */
+    data class Said(val text: String, val reply: String? = null) : QaState
 }
 
 /**
@@ -211,7 +213,11 @@ class MaintenanceEngine(
         val previous = warningJob
         warningJob = scope.launch {
             previous?.join()
-            fresh.forEach { voice.speak(announceWarning(it)) }
+            fresh.forEach {
+                val text = announceWarning(it)
+                qaState.value = QaState.Said(text)
+                voice.speak(text)
+            }
         }
     }
 
@@ -272,11 +278,14 @@ class MaintenanceEngine(
             severeNotice = repo.severeToAnnounce(),
             bundleExtras = bundleOf(estimates).map { it.part },
         )
+        // 화면에도 같은 말을 띄워 소리를 놓쳐도 알 수 있게 한다.
+        suspend fun hear(text: String): String? = voice.listen().also { qaState.value = QaState.Said(text, it.orEmpty()) }
         for (prompt in plan) {
+            qaState.value = QaState.Said(prompt.text)
             voice.speak(prompt.text)
             when (prompt) {
                 is Prompt.AskShop -> {
-                    val answer = voice.listen()
+                    val answer = hear(prompt.text)
                     parseParts(answer).forEach {
                         record(it, RecordType.REPLACED, RecordSource.SHOP_VOICE)
                         repo.removePending(it)
@@ -289,7 +298,7 @@ class MaintenanceEngine(
                 is Prompt.AskSensor -> {
                     val part = prompt.pending.part
                     if (repo.pendings().none { it.part == part }) continue // 정비소 답변에서 이미 처리됨
-                    when (parseAnswer(voice.listen())) {
+                    when (parseAnswer(hear(prompt.text))) {
                         Answer.REPLACED -> { record(part, RecordType.REPLACED, RecordSource.SENSOR_VOICE); repo.removePending(part) }
                         Answer.REFILLED -> { record(part, RecordType.REFILLED, RecordSource.SENSOR_VOICE); repo.removePending(part) }
                         Answer.NO -> repo.removePending(part)
