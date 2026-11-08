@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +42,7 @@ import com.chacare.domain.LifeStatus
 import com.chacare.domain.Part
 import com.chacare.domain.Powertrain
 import com.chacare.domain.VehicleModel
+import com.chacare.domain.bundleOf
 import com.chacare.domain.displayKm
 import com.chacare.domain.displayMonths
 import com.chacare.domain.summary
@@ -92,16 +94,20 @@ fun DashboardScreen(
                 }
             }
         }
-        if (severe != null && severe.detected.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            SevereBanner(severe, parked, onSevereOff)
-        }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
+        val bundle = bundleOf(estimates)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 400.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // 배너도 목록과 함께 스크롤되도록 한 줄 전체를 차지하는 항목으로 넣는다.
+            if (severe != null && severe.detected.isNotEmpty()) {
+                item(key = "severe", span = { GridItemSpan(maxLineSpan) }) { SevereBanner(severe, parked, onSevereOff) }
+            }
+            if (bundle.isNotEmpty()) {
+                item(key = "bundle", span = { GridItemSpan(maxLineSpan) }) { BundleCard(bundle, parked, onOpen) }
+            }
             items(estimates, key = { it.part }) { e ->
                 CardShell(enabled = parked, onClick = { onOpen(e.part) }, image = { PartImage(e.part, 136.dp) }) {
                     CardBody(e.part.koreanName, e.part.summary, e.status, e.remainingRatio, remainingText(e), e.kind, severe = e.severeBy.isNotEmpty())
@@ -127,6 +133,36 @@ fun DashboardScreen(
             }
         }
     }
+}
+
+/** 시기가 됐거나 곧 되는 항목을 묶어 "정비소 한 번에" 하라고 권한다. */
+@Composable
+private fun BundleCard(items: List<LifeEstimate>, parked: Boolean, onOpen: (Part) -> Unit) {
+    Column(Modifier.fillMaxWidth().card().padding(horizontal = 24.dp, vertical = 18.dp)) {
+        Text("다음 정비 때 함께 하세요", fontSize = 21.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("정비소 한 번 방문으로 ${items.size}가지를 끝낼 수 있어요", fontSize = 16.sp, color = TextSecondary)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items.forEach { e ->
+                Row(
+                    Modifier.clip(RoundedCornerShape(16.dp)).background(Track.copy(alpha = 0.5f))
+                        .clickable(enabled = parked) { onOpen(e.part) }.padding(end = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    PartImage(e.part, 64.dp)
+                    Column {
+                        Text(e.part.koreanName, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                        Text(bundleLabel(e), fontSize = 15.sp, color = if (e.status == LifeStatus.REPLACE) ReplaceColor else CheckColor)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun bundleLabel(e: LifeEstimate): String {
+    val verb = if (e.kind == IntervalKind.INSPECT) "점검" else "교체"
+    return if (e.status == LifeStatus.REPLACE) "$verb 필요" else "곧 $verb"
 }
 
 /** 운행 기록으로 판정한 가혹 조건과 근거. 사용자가 끄면 통상 조건으로 돌아간다. */

@@ -173,6 +173,20 @@ class MaintenanceEngineTest {
         assertTrue(voice.spoken.first { "가혹 조건" in it }.contains("짧은 거리 반복 주행"))
     }
 
+    @Test fun alertSuggestsDoingSoonPartsTogether() = runTest {
+        val d = LocalDate.of(2026, 11, 1)
+        // 에어 필터(4만km): 4만km 사용 → 교체 시기(알림)
+        repo.addRecord(ServiceRecord(part = Part.ENGINE_AIR_FILTER, type = RecordType.REPLACED, date = d, odometerKm = -26_000.0, source = RecordSource.MANUAL))
+        // 엔진오일(차종 모름 → 1만km): 8,000km 사용 → 2,000km 남음, 알림 대상은 아니지만 곧
+        repo.addRecord(ServiceRecord(part = Part.ENGINE_OIL, type = RecordType.REPLACED, date = d, odometerKm = 6_000.0, source = RecordSource.MANUAL))
+        val voice = FakeVoiceIO(emptyList())
+        engine(voice)
+        vehicle.setOdometer(0.0); advanceUntilIdle(); vehicle.setOdometer(14_000.0); advanceUntilIdle()
+        vehicle.setParked(true); advanceUntilIdle()
+        assertTrue(voice.spoken.contains("에어 필터 교체 시기가 됐어요."))
+        assertTrue(voice.spoken.contains("정비소에 가실 때 엔진오일도 함께 하시면 한 번에 끝낼 수 있어요."))
+    }
+
     @Test fun washerRecoveredRecordsRefill() = runTest {
         engine(FakeVoiceIO(emptyList()))
         vehicle.emitSensor(SensorKind.WASHER_WARNING, SignalState.LOW)

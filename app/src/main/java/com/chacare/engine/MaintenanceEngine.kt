@@ -16,6 +16,7 @@ import com.chacare.domain.SensorKind
 import com.chacare.domain.Shop
 import com.chacare.domain.ShopVisitDetector
 import com.chacare.domain.UsageStats
+import com.chacare.domain.bundleOf
 import com.chacare.domain.mentions
 import com.chacare.domain.parseAnswer
 import com.chacare.domain.parseParts
@@ -180,13 +181,15 @@ class MaintenanceEngine(
     private suspend fun runPrompts() {
         val now = clock()
         val odo = repo.lastOdometer() ?: 0.0
-        val due = repo.estimates().first().filter { shouldAlert(it.status, repo.lastAlert(it.part), now, odo) }
+        val estimates = repo.estimates().first()
+        val due = estimates.filter { shouldAlert(it.status, repo.lastAlert(it.part), now, odo) }
         val plan = planPrompts(
             repo.pendingShopVisit(), repo.pendings(), due.map { it.part },
             tireLow = sensors.isLow(SensorKind.TIRE_PRESSURE_WARNING),
             washerLow = sensors.isLow(SensorKind.WASHER_WARNING),
             inspectOnly = due.filter { it.kind == IntervalKind.INSPECT }.map { it.part }.toSet(),
             severeNotice = repo.severeToAnnounce(),
+            bundleExtras = bundleOf(estimates).map { it.part },
         )
         for (prompt in plan) {
             voice.speak(prompt.text)
@@ -215,6 +218,7 @@ class MaintenanceEngine(
                 }
                 is Prompt.Alert -> repo.saveAlert(AlertRecord(prompt.part, now, odo))
                 is Prompt.SevereNotice -> repo.markSevereAnnounced(prompt.reasons)
+                is Prompt.BundleTip -> Unit
                 Prompt.TireLow, Prompt.WasherLow -> Unit
             }
         }

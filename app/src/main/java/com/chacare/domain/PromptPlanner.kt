@@ -26,6 +26,11 @@ sealed class Prompt {
             "취급설명서의 가혹 조건 교체 주기로 바꿨어요."
     }
 
+    /** 교체 시기 알림 뒤에, 곧 시기가 되는 다른 항목을 함께 하라고 권한다. */
+    data class BundleTip(val parts: List<Part>) : Prompt() {
+        override val text = "정비소에 가실 때 ${parts.joinToString(", ") { it.koreanName }}도 함께 하시면 한 번에 끝낼 수 있어요."
+    }
+
     data object TireLow : Prompt() {
         override val text = "타이어 공기압이 낮아요. 확인해 주세요."
     }
@@ -44,6 +49,7 @@ fun planPrompts(
     washerLow: Boolean,
     inspectOnly: Set<Part> = emptySet(),
     severeNotice: Set<SevereReason> = emptySet(),
+    bundleExtras: List<Part> = emptyList(),
 ): List<Prompt> = buildList {
     if (tireLow) add(Prompt.TireLow)
     if (washerLow) add(Prompt.WasherLow)
@@ -51,4 +57,6 @@ fun planPrompts(
     if (shop != null) add(Prompt.AskShop(shop))
     pendings.filter { it.askCount < MAX_ASKS }.forEach { add(Prompt.AskSensor(it)) }
     alerts.forEach { add(Prompt.Alert(it, inspect = it in inspectOnly)) }
+    val extras = bundleExtras - alerts.toSet()
+    if (alerts.isNotEmpty() && extras.isNotEmpty()) add(Prompt.BundleTip(extras))
 }
