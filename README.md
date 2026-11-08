@@ -4,8 +4,7 @@ Pleos Connect(Android Automotive OS)용 **차량 종합 안전 관리 앱**입�
 대부분의 운전자는 정확한 정비 주기를 모르고 "고장 나면 고치는" 방식으로 차를 탑니다. 미리는 차가 보내는 신호와 운행 습관, 차종별 취급설명서를 바탕으로 소모품 상태와 경고등을 **고장 나기 전에, 말로** 알려 줍니다.
 
 - 출품: 현대자동차그룹 차량용 앱 개발 공모전 (Pleos App Market)
-- 출품자: 이주형 (개인)
-- 설치 파일: [`apk/이주형_미리_release.apk`](apk/)
+- 설치 파일: [`apk/미리_release.apk`](apk/)
 
 ## 주요 기능
 
@@ -40,7 +39,7 @@ Pleos Connect(Android Automotive OS)용 **차량 종합 안전 관리 앱**입�
 Pleos Connect 에뮬레이터(v2.1.0, API 34)에서 확인했습니다. 운전자 프로필이 user 10이라 `--user 10`으로 설치합니다.
 
 ```bash
-adb install --user 10 apk/이주형_미리_release.apk
+adb install --user 10 apk/미리_release.apk
 ```
 
 처음 실행하면 위치·마이크·알림 권한을 묻고, 차종과 마지막 교체 시기를 고르면 대시보드가 열립니다.
