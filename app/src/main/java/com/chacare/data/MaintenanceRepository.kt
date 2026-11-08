@@ -13,6 +13,9 @@ import com.chacare.domain.lifeOf
 import com.chacare.domain.PendingConfirmation
 import com.chacare.domain.Powertrain
 import com.chacare.domain.SensorKind
+import com.chacare.domain.SevereReason
+import com.chacare.domain.detectSevere
+import com.chacare.domain.severeEvidence
 import com.chacare.domain.ShopVisit
 import com.chacare.domain.SignalState
 import com.chacare.domain.UsageStats
@@ -71,6 +74,11 @@ data class CustomEstimate(
     val last: CustomRecord?,
 )
 
+/** [detected]는 운행 기록상 해당하는 가혹 조건, [off]면 사용자가 판정을 꺼서 적용하지 않는다. */
+data class SevereStatus(val detected: Set<SevereReason>, val off: Boolean, val evidence: Map<SevereReason, String>) {
+    val applied get() = !off && detected.isNotEmpty()
+}
+
 /** 앱이 기억하는 전부. 데이터가 작아서 JSON 파일 하나로 충분하다. */
 @Serializable
 private data class StoreData(
@@ -90,6 +98,10 @@ private data class StoreData(
     val customRecords: List<CustomRecord> = emptyList(),
     val onboarded: Boolean = false,
     val demoMode: Boolean = false,
+    /** 사용자가 가혹 조건 판정을 끄면 통상 조건 주기만 쓴다. */
+    val severeOff: Boolean = false,
+    /** 음성으로 이미 알린 가혹 조건(바뀔 때만 다시 알린다). */
+    val severeAnnounced: Set<SevereReason> = emptySet(),
 )
 
 internal object LocalDateSerializer : KSerializer<LocalDate> {
@@ -202,7 +214,28 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
     /** 상세 화면에 보여줄 현재 차종 기준 권장 주기. */
     fun spec(part: Part): Flow<PartSpec?> = state.map { s -> specsOf(s).firstOrNull { it.part == part } }
 
-    private fun specsOf(s: StoreData) = specsFor(s.powertrain ?: Powertrain.ICE, findModel(s.modelId))
+    private fun specsOf(s: StoreData) = specsFor(s.powertrain ?: Powertrain.ICE, findModel(s.modelId), appliedSevere(s))
+
+    // --- 가혹 조건 ---
+
+    private fun appliedSevere(s: StoreData): Set<SevereReason> = if (s.severeOff) emptySet() else detectSevere(s.usageTotal)
+
+    /** 판정 결과(끈 상태와 무관)와 근거 숫자. */
+    val severe: Flow<SevereStatus> = state.map { s ->
+        val detected = detectSevere(s.usageTotal)
+        SevereStatus(detected, s.severeOff, detected.associateWith { severeEvidence(it, s.usageTotal) })
+    }
+
+    suspend fun setSevereOff(off: Boolean) = update { it.copy(severeOff = off) }
+
+    /** 지금 적용 중인 가혹 조건이 마지막으로 알린 것과 다르면 그 조건(빈 집합이면 알릴 것 없음). */
+    suspend fun severeToAnnounce(): Set<SevereReason> {
+        val s = state.value
+        val now = appliedSevere(s)
+        return if (now.isNotEmpty() && now != s.severeAnnounced) now else emptySet()
+    }
+
+    suspend fun markSevereAnnounced(r: Set<SevereReason>) = update { it.copy(severeAnnounced = r) }
 
     // --- 직접 추가한 부품 ---
 

@@ -62,16 +62,21 @@ fun PartDetailScreen(
                 Text(estimate.part.description, fontSize = 19.sp, color = TextPrimary, lineHeight = 28.sp)
                 Spacer(Modifier.height(12.dp))
                 if (spec != null) {
+                    val severe = if (spec.severeBy.isEmpty()) "" else "  (가혹 조건)"
                     Text(
                         when (spec.kind) {
-                            IntervalKind.REPLACE -> "권장 교체 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}"
-                            IntervalKind.INSPECT -> "권장 점검 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}"
+                            IntervalKind.REPLACE -> "권장 교체 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}$severe"
+                            IntervalKind.INSPECT -> "권장 점검 주기  ${intervalText(spec.intervalKm, spec.intervalMonths)}$severe"
                             IntervalKind.NONE -> "정해진 교체 주기 없음"
                         },
-                        fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary,
+                        fontSize = 19.sp, fontWeight = FontWeight.SemiBold,
+                        color = if (spec.severeBy.isEmpty()) TextPrimary else CheckColor,
                     )
                     vehicle?.let { (model, pt) ->
-                        Text(intervalSource(estimate.part, model, pt), fontSize = 16.sp, color = TextSecondary)
+                        Text(intervalSource(estimate.part, model, pt, spec.severeBy), fontSize = 16.sp, color = TextSecondary)
+                    }
+                    if (spec.severeBy.isNotEmpty()) {
+                        Text("가혹 조건 근거: " + spec.severeBy.joinToString(", ") { it.label }, fontSize = 16.sp, color = TextSecondary)
                     }
                 }
                 Spacer(Modifier.height(24.dp))

@@ -186,6 +186,7 @@ class MaintenanceEngine(
             tireLow = sensors.isLow(SensorKind.TIRE_PRESSURE_WARNING),
             washerLow = sensors.isLow(SensorKind.WASHER_WARNING),
             inspectOnly = due.filter { it.kind == IntervalKind.INSPECT }.map { it.part }.toSet(),
+            severeNotice = repo.severeToAnnounce(),
         )
         for (prompt in plan) {
             voice.speak(prompt.text)
@@ -213,6 +214,7 @@ class MaintenanceEngine(
                     }
                 }
                 is Prompt.Alert -> repo.saveAlert(AlertRecord(prompt.part, now, odo))
+                is Prompt.SevereNotice -> repo.markSevereAnnounced(prompt.reasons)
                 Prompt.TireLow, Prompt.WasherLow -> Unit
             }
         }

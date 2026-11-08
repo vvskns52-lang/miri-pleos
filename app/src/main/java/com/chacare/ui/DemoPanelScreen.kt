@@ -27,6 +27,9 @@ import com.chacare.domain.SensorKind
 
 /** 발표·시연용 숨김 화면(설계서 5.10). 대시보드 제목을 5번 누르면 열린다. */
 class DemoActions(
+    val shortTrips: () -> Unit,
+    val congestion: () -> Unit,
+    val stopAndGo: () -> Unit,
     val setDemoMode: (Boolean) -> Unit,
     val addKm: (Double) -> Unit,
     val pressBrake: (Int) -> Unit,
@@ -67,6 +70,11 @@ fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, actions: DemoActions, on
             FilledTonalButton({ actions.pressBrake(100) }) { Text("브레이크 100회", fontSize = 18.sp) }
             FilledTonalButton({ actions.runWiper(30) }) { Text("와이퍼 30분", fontSize = 18.sp) }
             FilledTonalButton({ actions.runHvac(60) }) { Text("에어컨 60분", fontSize = 18.sp) }
+        }
+        Section("운행 패턴 재현 (가혹 조건 판정)") {
+            FilledTonalButton({ actions.shortTrips() }) { Text("짧은 거리 반복 주행", fontSize = 18.sp) }
+            FilledTonalButton({ actions.congestion() }) { Text("정체 구간 주행", fontSize = 18.sp) }
+            FilledTonalButton({ actions.stopAndGo() }) { Text("정지·출발 반복", fontSize = 18.sp) }
         }
         Section("센서: 부족 → 정상 (교체·보충 감지)") {
             SENSOR_LABELS.forEach { (kind, label) -> FilledTonalButton({ actions.sensorRecovered(kind) }) { Text(label, fontSize = 18.sp) } }

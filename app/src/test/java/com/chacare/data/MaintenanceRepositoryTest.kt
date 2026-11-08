@@ -6,6 +6,7 @@ import com.chacare.domain.Part
 import com.chacare.domain.PendingConfirmation
 import com.chacare.domain.Powertrain
 import com.chacare.domain.SensorKind
+import com.chacare.domain.SevereReason
 import com.chacare.domain.SignalState
 import com.chacare.domain.UsageStats
 import kotlinx.coroutines.flow.first
@@ -133,6 +134,18 @@ class MaintenanceRepositoryTest {
         assertNull(repo.powertrain())
         repo.setOnboarded()
         assertTrue(newRepo().onboarded())
+    }
+
+    @Test fun severeUsageShortensOilInterval() = runTest {
+        repo.setVehicle("avante", Powertrain.ICE)
+        repo.addUsage(UsageStats(drivenKm = 300.0, drivingMinutes = 600.0, shortTrips = 15, totalTrips = 20))
+        val st = repo.severe.first()
+        assertEquals(setOf(SevereReason.SHORT_TRIPS), st.detected)
+        assertEquals(7_500, repo.spec(Part.ENGINE_OIL).first()!!.intervalKm)
+        assertEquals(setOf(SevereReason.SHORT_TRIPS), repo.estimates().first().single { it.part == Part.ENGINE_OIL }.severeBy)
+        repo.setSevereOff(true)
+        assertEquals(15_000, newRepo().spec(Part.ENGINE_OIL).first()!!.intervalKm)
+        assertTrue(newRepo().severe.first().off)
     }
 
     @Test fun corruptFileStartsEmpty() = runTest {

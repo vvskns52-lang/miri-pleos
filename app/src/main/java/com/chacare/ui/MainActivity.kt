@@ -107,6 +107,7 @@ private fun App(graph: AppGraph) {
     val customs by remember { repo.customEstimates() }.collectAsState(initial = emptyList())
     val vehicle by repo.vehicle.collectAsState(initial = null)
     val odometer by repo.odometer.collectAsState(initial = null)
+    val severe by repo.severe.collectAsState(initial = null)
     val demoMode by repo.demoMode.collectAsState(initial = false)
     val parked by graph.parked.collectAsState()
     var onboarded by remember { mutableStateOf<Boolean?>(null) }
@@ -126,7 +127,8 @@ private fun App(graph: AppGraph) {
             }
             true -> when (val s = screen) {
                 Screen.Dashboard -> DashboardScreen(
-                    estimates, customs, vehicle, odometer, parked,
+                    estimates, customs, vehicle, odometer, severe, parked,
+                    onSevereOff = { off -> scope.launch { repo.setSevereOff(off) } },
                     onOpen = { screen = Screen.Detail(it) },
                     onOpenCustom = { screen = Screen.CustomDetail(it) },
                     onAddCustom = { screen = Screen.CustomAdd },
@@ -232,7 +234,17 @@ private fun demoActions(graph: AppGraph, scope: CoroutineScope): DemoActions {
         graph.advanceTime(minutes); delay(300)
         set(false)
     }
+    // 출발 → 주행 → 정차를 한 번 흉내 낸다(엔진이 주행 1건으로 센다).
+    suspend fun trip(km: Double, minutes: Long, brakes: Int) {
+        car.setParked(false); delay(250)
+        car.addKm(km); car.pressBrake(brakes)
+        graph.advanceTime(minutes); delay(250)
+        car.setParked(true); delay(250)
+    }
     return DemoActions(
+        shortTrips = { scope.launch { repeat(12) { trip(3.0, 6, 3) }; trip(250.0, 180, 20) } },
+        congestion = { scope.launch { trip(230.0, 1_020, 60) } },
+        stopAndGo = { scope.launch { trip(220.0, 300, 500) } },
         setDemoMode = { on -> scope.launch { graph.repo.setDemoMode(on) } },
         addKm = car::addKm,
         pressBrake = car::pressBrake,

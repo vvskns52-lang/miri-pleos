@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chacare.data.CustomEstimate
+import com.chacare.data.SevereStatus
 import com.chacare.domain.IntervalKind
 import com.chacare.domain.LifeEstimate
 import com.chacare.domain.LifeStatus
@@ -50,7 +51,9 @@ fun DashboardScreen(
     customs: List<CustomEstimate>,
     vehicle: Pair<VehicleModel?, Powertrain>?,
     odometerKm: Double?,
+    severe: SevereStatus?,
     parked: Boolean,
+    onSevereOff: (Boolean) -> Unit,
     onOpen: (Part) -> Unit,
     onOpenCustom: (Long) -> Unit,
     onAddCustom: () -> Unit,
@@ -89,6 +92,10 @@ fun DashboardScreen(
                 }
             }
         }
+        if (severe != null && severe.detected.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            SevereBanner(severe, parked, onSevereOff)
+        }
         Spacer(Modifier.height(24.dp))
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = 400.dp),
@@ -97,7 +104,7 @@ fun DashboardScreen(
         ) {
             items(estimates, key = { it.part }) { e ->
                 CardShell(enabled = parked, onClick = { onOpen(e.part) }, image = { PartImage(e.part, 136.dp) }) {
-                    CardBody(e.part.koreanName, e.part.summary, e.status, e.remainingRatio, remainingText(e), e.kind)
+                    CardBody(e.part.koreanName, e.part.summary, e.status, e.remainingRatio, remainingText(e), e.kind, severe = e.severeBy.isNotEmpty())
                 }
             }
             items(customs, key = { "custom-${it.part.id}" }) { c ->
@@ -118,6 +125,32 @@ fun DashboardScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/** 운행 기록으로 판정한 가혹 조건과 근거. 사용자가 끄면 통상 조건으로 돌아간다. */
+@Composable
+private fun SevereBanner(s: SevereStatus, parked: Boolean, onOff: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+            .background(if (s.off) Track else CheckColor.copy(alpha = 0.12f))
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (s.off) "가혹 조건 판정을 껐어요 · 통상 조건 주기로 보여드려요"
+                else "운행 기록을 보니 가혹 조건이에요 · 취급설명서의 가혹 조건 주기를 적용했어요",
+                fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = if (s.off) TextSecondary else TextPrimary,
+            )
+            Text(
+                s.detected.joinToString("   ") { "${it.label} (${s.evidence[it]})" },
+                fontSize = 16.sp, color = TextSecondary,
+            )
+        }
+        OutlinedButton(onClick = { onOff(!s.off) }, enabled = parked) {
+            Text(if (s.off) "다시 적용" else "통상 조건으로 보기", fontSize = 16.sp)
         }
     }
 }
@@ -146,13 +179,20 @@ private fun CardShell(enabled: Boolean, onClick: () -> Unit, image: @Composable 
 }
 
 @Composable
-private fun CardBody(name: String, subtitle: String, status: LifeStatus?, ratio: Double?, remaining: String, kind: IntervalKind = IntervalKind.REPLACE) {
+private fun CardBody(
+    name: String, subtitle: String, status: LifeStatus?, ratio: Double?, remaining: String,
+    kind: IntervalKind = IntervalKind.REPLACE, severe: Boolean = false,
+) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             name, Modifier.weight(1f),
             fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
         )
+        if (severe) {
+            Text("가혹", color = CheckColor, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.width(8.dp))
+        }
         if (status != null) StatusPill(status, kind)
     }
     Spacer(Modifier.height(4.dp))

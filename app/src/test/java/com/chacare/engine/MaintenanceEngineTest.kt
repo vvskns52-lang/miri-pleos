@@ -8,6 +8,7 @@ import com.chacare.domain.Part
 import com.chacare.domain.SensorKind
 import com.chacare.domain.Shop
 import com.chacare.domain.SignalState
+import com.chacare.domain.UsageStats
 import com.chacare.location.DemoLocationSource
 import com.chacare.vehicle.DemoVehicleSignals
 import com.chacare.voice.FakeVoiceIO
@@ -160,6 +161,16 @@ class MaintenanceEngineTest {
         vehicle.setParked(true); advanceUntilIdle()
         e.newIgnitionCycle(); vehicle.setParked(false); advanceUntilIdle(); vehicle.setParked(true); advanceUntilIdle()
         assertEquals(1, voice.spoken.count { it == "엔진오일 교체 시기가 됐어요." })
+    }
+
+    @Test fun severeConditionAnnouncedOnce() = runTest {
+        repo.addUsage(UsageStats(drivenKm = 300.0, drivingMinutes = 600.0, shortTrips = 15, totalTrips = 20))
+        val voice = FakeVoiceIO(emptyList())
+        val e = engine(voice)
+        vehicle.setParked(true); advanceUntilIdle()
+        e.newIgnitionCycle(); advanceUntilIdle()
+        assertEquals(1, voice.spoken.count { "가혹 조건" in it })
+        assertTrue(voice.spoken.first { "가혹 조건" in it }.contains("짧은 거리 반복 주행"))
     }
 
     @Test fun washerRecoveredRecordsRefill() = runTest {

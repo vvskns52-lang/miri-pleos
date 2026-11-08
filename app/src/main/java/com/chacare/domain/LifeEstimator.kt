@@ -18,6 +18,7 @@ data class LifeEstimate(
     val remainingMonths: Double?,
     val kind: IntervalKind = IntervalKind.REPLACE,
     val note: String? = null,
+    val severeBy: Set<SevereReason> = emptySet(),
 )
 
 private const val DAYS_PER_MONTH = 30.4375
@@ -36,8 +37,8 @@ fun estimate(
     sensorWarning: Boolean = false,
 ): LifeEstimate {
     val life = lifeOf(spec.intervalKm, spec.intervalMonths, last, nowOdometerKm, today, factor)
-        ?: return LifeEstimate(spec.part, if (sensorWarning) LifeStatus.REPLACE else LifeStatus.GOOD, null, null, null, spec.kind, spec.note)
-    return LifeEstimate(spec.part, life.status, life.remainingRatio, life.remainingKm, life.remainingMonths, spec.kind, spec.note)
+        ?: return LifeEstimate(spec.part, if (sensorWarning) LifeStatus.REPLACE else LifeStatus.GOOD, null, null, null, spec.kind, spec.note, spec.severeBy)
+    return LifeEstimate(spec.part, life.status, life.remainingRatio, life.remainingKm, life.remainingMonths, spec.kind, spec.note, spec.severeBy)
 }
 
 data class Life(val status: LifeStatus, val remainingRatio: Double?, val remainingKm: Double?, val remainingMonths: Double?)

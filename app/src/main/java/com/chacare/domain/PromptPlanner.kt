@@ -20,6 +20,12 @@ sealed class Prompt {
         override val text = "${part.koreanName} ${if (inspect) "점검" else "교체"} 시기가 됐어요."
     }
 
+    /** 운행 기록상 가혹 조건이 되어 매뉴얼의 가혹 조건 주기로 바꿨을 때 한 번 알린다. */
+    data class SevereNotice(val reasons: Set<SevereReason>) : Prompt() {
+        override val text = "운행 기록을 보니 ${reasons.joinToString(", ") { it.label }}에 해당해서, " +
+            "취급설명서의 가혹 조건 교체 주기로 바꿨어요."
+    }
+
     data object TireLow : Prompt() {
         override val text = "타이어 공기압이 낮아요. 확인해 주세요."
     }
@@ -37,9 +43,11 @@ fun planPrompts(
     tireLow: Boolean,
     washerLow: Boolean,
     inspectOnly: Set<Part> = emptySet(),
+    severeNotice: Set<SevereReason> = emptySet(),
 ): List<Prompt> = buildList {
     if (tireLow) add(Prompt.TireLow)
     if (washerLow) add(Prompt.WasherLow)
+    if (severeNotice.isNotEmpty()) add(Prompt.SevereNotice(severeNotice))
     if (shop != null) add(Prompt.AskShop(shop))
     pendings.filter { it.askCount < MAX_ASKS }.forEach { add(Prompt.AskSensor(it)) }
     alerts.forEach { add(Prompt.Alert(it, inspect = it in inspectOnly)) }
