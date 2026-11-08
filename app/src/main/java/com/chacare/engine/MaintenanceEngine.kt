@@ -16,7 +16,14 @@ import com.chacare.domain.SensorKind
 import com.chacare.domain.Shop
 import com.chacare.domain.ShopVisitDetector
 import com.chacare.domain.UsageStats
+import com.chacare.data.CustomEstimate
+import com.chacare.domain.CustomAnswer
+import com.chacare.domain.answerQuery
 import com.chacare.domain.bundleOf
+import com.chacare.domain.displayKm
+import com.chacare.domain.displayMonths
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import com.chacare.domain.mentions
 import com.chacare.domain.parseAnswer
 import com.chacare.domain.parseParts
@@ -35,6 +42,12 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+/** "물어보기" 진행 상태(화면 표시용). */
+sealed interface QaState {
+    data object Listening : QaState
+    data class Answered(val question: String?, val answer: String) : QaState
+}
+
 /**
  * 차량 신호를 운행 기록으로 쌓고, 교체 징후를 감지하고, 정차 중에 음성으로 묻는다.
  * 내부 상태를 여러 코루틴이 공유하므로 반드시 단일 스레드 디스패처의 [CoroutineScope]에서 시작한다.
@@ -45,8 +58,10 @@ class MaintenanceEngine(
     private val voice: VoiceIO,
     private val repo: MaintenanceRepository,
     private val shops: List<Shop>,
+    private val qaState: MutableStateFlow<QaState?> = MutableStateFlow(null),
     private val clock: () -> Long,
 ) {
+    val qa: StateFlow<QaState?> = qaState
     private var job: Job? = null
     private var promptJob: Job? = null
     private var promptsDoneThisCycle = false
@@ -140,6 +155,33 @@ class MaintenanceEngine(
             promptsDoneThisCycle = false
             if (isParked) onParked(scope)
         }
+    }
+
+    /**
+     * 운전자가 묻고 앱이 답한다. 말로만 주고받으므로 주행 중에도 쓸 수 있다.
+     * [typed]가 있으면 듣기를 건너뛴다(데모 패널의 예시 질문).
+     */
+    fun ask(typed: String? = null) {
+        val scope = workScope ?: return
+        scope.launch {
+            if (promptJob?.isActive == true) return@launch // 정차 안내 중에는 끼어들지 않는다
+            val question = if (typed != null) typed else {
+                qaState.value = QaState.Listening
+                voice.speak("무엇이 궁금하세요?")
+                voice.listen()
+            }
+            val customs = repo.customEstimates().first().map { CustomAnswer(it.part.name, customPhrase(it)) }
+            val answer = answerQuery(question, repo.estimates().first(), repo.specs().first(), customs)
+            qaState.value = QaState.Answered(question, answer)
+            voice.speak(answer)
+        }
+    }
+
+    private fun customPhrase(c: CustomEstimate): String = when {
+        c.status == null -> c.last?.let { "마지막으로 ${it.date}에 교체했어요" } ?: "아직 교체 기록이 없어요"
+        c.remainingRatio == null -> "교체 기록이 없어서 남은 수명을 알 수 없어요"
+        (c.remainingKm ?: 1.0) <= 0.0 || (c.remainingMonths ?: 1.0) <= 0.0 -> "교체 시기가 지났어요"
+        else -> "교체까지 " + listOfNotNull(c.remainingKm?.let(::displayKm), c.remainingMonths?.let(::displayMonths)).joinToString(", ") + " 남았어요"
     }
 
     private suspend fun trackMinutes(on: Boolean, since: Long?, add: suspend (Double) -> Unit): Long? {

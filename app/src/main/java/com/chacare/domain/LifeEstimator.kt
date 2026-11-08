@@ -72,6 +72,12 @@ fun lifeOf(
     return Life(status, ratio, remainingKm, remainingMonths)
 }
 
+/** 권장 주기를 "15,000km 또는 12개월"처럼 읽는다. */
+fun intervalText(km: Int?, months: Int?): String = listOfNotNull(
+    km?.let { "%,dkm".format(it) },
+    months?.let { "${it}개월" },
+).joinToString(" 또는 ").ifEmpty { "주기 없음" }
+
 /** 가짜 정밀함을 피하려고 천 km 단위로만 보여준다(설계서 5.2). */
 fun displayKm(remainingKm: Double?): String = when {
     remainingKm == null -> "정보 없음"

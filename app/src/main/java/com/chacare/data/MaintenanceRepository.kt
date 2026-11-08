@@ -214,6 +214,9 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
     /** 상세 화면에 보여줄 현재 차종 기준 권장 주기. */
     fun spec(part: Part): Flow<PartSpec?> = state.map { s -> specsOf(s).firstOrNull { it.part == part } }
 
+    /** 현재 차종·가혹 조건 기준 전체 권장 주기. */
+    fun specs(): Flow<List<PartSpec>> = state.map { specsOf(it) }
+
     private fun specsOf(s: StoreData) = specsFor(s.powertrain ?: Powertrain.ICE, findModel(s.modelId), appliedSevere(s))
 
     // --- 가혹 조건 ---

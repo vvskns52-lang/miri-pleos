@@ -1,5 +1,6 @@
 package com.chacare.ui
 
+import com.chacare.domain.intervalText
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -100,8 +101,3 @@ private fun IntervalPreview(powertrain: Powertrain, model: VehicleModel?) {
         fontSize = 17.sp, color = TextSecondary,
     )
 }
-
-fun intervalText(km: Int?, months: Int?): String = listOfNotNull(
-    km?.let { "%,dkm".format(it) },
-    months?.let { "${it}개월" },
-).joinToString(" 또는 ").ifEmpty { "주기 없음" }

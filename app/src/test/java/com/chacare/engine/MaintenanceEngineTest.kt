@@ -187,6 +187,26 @@ class MaintenanceEngineTest {
         assertTrue(voice.spoken.contains("정비소에 가실 때 엔진오일도 함께 하시면 한 번에 끝낼 수 있어요."))
     }
 
+    @Test fun askByVoiceAnswersAloudAndOnScreen() = runTest {
+        repo.addRecord(ServiceRecord(part = Part.ENGINE_OIL, type = RecordType.REPLACED, date = LocalDate.of(2026, 11, 1), odometerKm = 0.0, source = RecordSource.MANUAL))
+        val voice = FakeVoiceIO(listOf("엔진오일 언제 갈아?"))
+        val e = engine(voice)
+        vehicle.setOdometer(0.0); advanceUntilIdle(); vehicle.setOdometer(6_000.0); advanceUntilIdle()
+        e.ask(); advanceUntilIdle()
+        assertEquals("무엇이 궁금하세요?", voice.spoken[voice.spoken.size - 2])
+        assertEquals("엔진오일은 교체까지 약 4,000km, 약 12개월 남았어요.", voice.spoken.last())
+        assertEquals(QaState.Answered("엔진오일 언제 갈아?", voice.spoken.last()), e.qa.value)
+    }
+
+    @Test fun typedQuestionSkipsListening() = runTest {
+        val voice = FakeVoiceIO(emptyList())
+        val id = repo.addCustomPart("블랙박스", null, null)
+        repo.addCustomRecord(id, LocalDate.of(2026, 5, 1), 0.0, "")
+        val e = engine(voice)
+        e.ask("블랙박스 언제 바꿨지"); advanceUntilIdle()
+        assertEquals(listOf("블랙박스는 마지막으로 2026-05-01에 교체했어요."), voice.spoken)
+    }
+
     @Test fun washerRecoveredRecordsRefill() = runTest {
         engine(FakeVoiceIO(emptyList()))
         vehicle.emitSensor(SensorKind.WASHER_WARNING, SignalState.LOW)
