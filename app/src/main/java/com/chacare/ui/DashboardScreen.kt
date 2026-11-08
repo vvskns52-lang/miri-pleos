@@ -72,11 +72,15 @@ fun DashboardScreen(
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column {
-                Text(
-                    "차케어",
-                    Modifier.clickable(enabled = parked) { if (++taps >= 5) { taps = 0; onSecretTap() } },
-                    fontSize = 34.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
-                )
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        "미리",
+                        Modifier.clickable(enabled = parked) { if (++taps >= 5) { taps = 0; onSecretTap() } },
+                        fontSize = 34.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text("고장 나기 전에, 미리", fontSize = 18.sp, color = Accent, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 5.dp))
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(summary(estimates, customs), color = TextSecondary, fontSize = 20.sp)
             }
