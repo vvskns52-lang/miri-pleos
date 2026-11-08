@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chacare.domain.SensorKind
+import com.chacare.domain.WarningLight
+import androidx.compose.material3.FilterChip
 
 /** 발표·시연용 숨김 화면(설계서 5.10). 대시보드 제목을 5번 누르면 열린다. */
 class DemoActions(
@@ -43,11 +45,18 @@ class DemoActions(
     val passTime: (Long) -> Unit,
     val setParked: (Boolean) -> Unit,
     val newIgnition: () -> Unit,
+    val toggleWarning: (WarningLight) -> Unit,
+    val clearWarnings: () -> Unit,
+)
+
+private val DEMO_WARNINGS = listOf(
+    WarningLight.OIL_PRESSURE, WarningLight.ENGINE_TEMP, WarningLight.BRAKE,
+    WarningLight.CHECK_ENGINE, WarningLight.CHARGING, WarningLight.TPMS,
 )
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, actions: DemoActions, onBack: () -> Unit) {
+fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, lit: Set<WarningLight>, actions: DemoActions, onBack: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(onClick = onBack) { Text("← 대시보드", fontSize = 18.sp) }
@@ -73,9 +82,18 @@ fun DemoPanelScreen(demoMode: Boolean, parked: Boolean, actions: DemoActions, on
             FilledTonalButton({ actions.runHvac(60) }) { Text("에어컨 60분", fontSize = 18.sp) }
         }
         Section("말로 물어보기 예시 (마이크 없이)") {
-            listOf("엔진오일 언제 갈아?", "뭐 갈아야 돼?", "에어컨 필터 교체 주기가 뭐야?", "브레이크 패드 어때?", "정비비 얼마나 들었어?").forEach { q ->
+            listOf("엔진오일 언제 갈아?", "뭐 갈아야 돼?", "에어컨 필터 교체 주기가 뭐야?", "브레이크 패드 어때?", "정비비 얼마나 들었어?", "경고등 켜졌는데 뭐야?").forEach { q ->
                 FilledTonalButton({ actions.ask(q) }) { Text(q, fontSize = 18.sp) }
             }
+        }
+        Section("경고등 켜기·끄기 (브레이크 경고등은 주행 중에만 안내)") {
+            DEMO_WARNINGS.forEach { w ->
+                FilterChip(
+                    selected = w in lit, onClick = { actions.toggleWarning(w) },
+                    label = { Text(w.koreanName, fontSize = 18.sp, modifier = Modifier.padding(vertical = 8.dp)) },
+                )
+            }
+            OutlinedButton({ actions.clearWarnings() }) { Text("모두 끄기", fontSize = 18.sp) }
         }
         Section("운행 패턴 재현 (가혹 조건 판정)") {
             FilledTonalButton({ actions.shortTrips() }) { Text("짧은 거리 반복 주행", fontSize = 18.sp) }

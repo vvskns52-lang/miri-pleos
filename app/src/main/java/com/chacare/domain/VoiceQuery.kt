@@ -13,8 +13,26 @@ private fun hasBatchim(word: String): Boolean {
     return (c - '가') % 28 != 0
 }
 
-private fun topic(name: String) = name + if (hasBatchim(name)) "은" else "는"
-private fun copula(word: String) = word + if (hasBatchim(word)) "이에요" else "예요"
+internal fun topic(name: String) = name + if (hasBatchim(name)) "은" else "는"
+internal fun subject(name: String) = name + if (hasBatchim(name)) "이" else "가"
+internal fun copula(word: String) = word + if (hasBatchim(word)) "이에요" else "예요"
+
+/** 이름을 대지 않고 "불 들어왔어"처럼 물을 때. 띄어쓰기를 지운 문장에서 찾는다. */
+private val WARNING_WORDS = listOf("경고등", "경고", "불들어", "불이들어", "불켜", "불이켜", "켜졌", "들어왔")
+
+private fun explainWarning(l: WarningLight, lit: Boolean): String =
+    if (lit) "${subject(l.koreanName)} 켜져 있어요. ${l.cause} 켜져요. ${l.action}"
+    else "${topic(l.koreanName)} ${l.cause} 켜져요. 지금은 꺼져 있어요."
+
+private fun litSummary(lit: List<WarningLight>): String {
+    val sorted = lit.sortedBy { it.ordinal }
+    return when (sorted.size) {
+        0 -> "지금 켜진 경고등은 없어요."
+        1 -> explainWarning(sorted[0], lit = true)
+        else -> "지금 켜진 경고등은 ${copula(sorted.joinToString(", ") { it.koreanName })}. " +
+            "가장 급한 ${sorted[0].koreanName}부터: ${sorted[0].action}"
+    }
+}
 
 private fun partAnswer(e: LifeEstimate?, part: Part, spec: PartSpec?, askingInterval: Boolean): String {
     val name = part.koreanName
@@ -76,12 +94,18 @@ fun answerQuery(
     specs: List<PartSpec>,
     customs: List<CustomAnswer>,
     costs: CostSummary? = null,
+    lit: List<WarningLight> = emptyList(),
 ): String {
     if (text.isNullOrBlank()) return NOT_UNDERSTOOD
+    // "엔진 경고등"의 "엔진"이 엔진오일로 잡히지 않도록 경고등 이름을 먼저 본다.
+    val named = findWarningLights(text)
+    if (named.isNotEmpty()) return named.joinToString(" ") { explainWarning(it, it in lit) }
     val parts = parseParts(text).sortedBy { it.ordinal }
     val customHits = customs.filter { mentions(it.name, text) }
     // 직접 추가한 부품 이름이 기본 부품 단어("필터" 등)를 포함하면 기본 부품으로 잘못 잡히지 않게 한다.
     val partsToAnswer = if (customHits.isNotEmpty()) parts.filter { p -> customHits.none { p.koreanName in it.name } } else parts
+    val compact = text.filterNot { it.isWhitespace() }
+    if (partsToAnswer.isEmpty() && customHits.isEmpty() && WARNING_WORDS.any { it in compact }) return litSummary(lit)
     if (costs != null && COST_WORDS.any { it in text }) {
         return costAnswer(text, partsToAnswer.map { it.koreanName } + customHits.map { it.name }, costs)
     }

@@ -3,6 +3,7 @@ package com.chacare.vehicle
 import com.chacare.domain.Powertrain
 import com.chacare.domain.SensorKind
 import com.chacare.domain.SignalState
+import com.chacare.domain.WarningLight
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
@@ -14,6 +15,7 @@ class DemoVehicleSignals(startOdometerKm: Double? = null, parked: Boolean = true
     override val hvacOn = MutableStateFlow(false)
     override val parked = MutableStateFlow(parked)
     override val sensors = MutableSharedFlow<Pair<SensorKind, SignalState>>(extraBufferCapacity = 64)
+    override val warningLights = MutableStateFlow<Set<WarningLight>>(emptySet())
 
     override suspend fun powertrain(): Powertrain? = Powertrain.ICE
     override fun start() = Unit
@@ -26,4 +28,6 @@ class DemoVehicleSignals(startOdometerKm: Double? = null, parked: Boolean = true
     fun setHvac(on: Boolean) { hvacOn.value = on }
     fun setParked(on: Boolean) { parked.value = on }
     fun emitSensor(kind: SensorKind, state: SignalState) { sensors.tryEmit(kind to state) }
+    fun setWarnings(lit: Set<WarningLight>) { warningLights.value = lit }
+    fun toggleWarning(light: WarningLight) { warningLights.value = warningLights.value.let { if (light in it) it - light else it + light } }
 }

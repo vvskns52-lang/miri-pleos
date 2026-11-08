@@ -71,6 +71,28 @@ class VoiceQueryTest {
 
     @Test fun howMuchLeftIsNotCost() = assertEquals("엔진오일은 교체까지 약 4,000km, 약 4개월 남았어요.", askCost("엔진오일 얼마 남았어"))
 
+    private fun askLit(q: String, vararg lit: WarningLight) = answerQuery(q, all, specs, emptyList(), lit = lit.toList())
+
+    @Test fun noWarningLit() = assertEquals("지금 켜진 경고등은 없어요.", askLit("경고등 켜졌어?"))
+
+    @Test fun oneWarningLit() = assertEquals(
+        "타이어 공기압 경고등이 켜져 있어요. 타이어 공기압이 낮을 때 켜져요. " + WarningLight.TPMS.action,
+        askLit("방금 불 들어왔는데 뭐야", WarningLight.TPMS),
+    )
+
+    @Test fun severalWarningsLit() = assertEquals(
+        "지금 켜진 경고등은 엔진 과열 경고등, 타이어 공기압 경고등이에요. 가장 급한 엔진 과열 경고등부터: " + WarningLight.ENGINE_TEMP.action,
+        askLit("경고등 뭐 켜졌어", WarningLight.TPMS, WarningLight.ENGINE_TEMP),
+    )
+
+    @Test fun namedWarningNotLit() = assertEquals(
+        "엔진 점검 경고등은 엔진 제어나 배기가스 장치에 이상이 감지됐을 때 켜져요. 지금은 꺼져 있어요.",
+        askLit("엔진 경고등 뭐야"),
+    )
+
+    @Test fun partQuestionWithWarningWordStillAnswersPart() =
+        assertEquals("엔진오일은 교체까지 약 4,000km, 약 4개월 남았어요.", askLit("엔진오일 언제 갈아"))
+
     @Test fun didNotUnderstand() {
         val expected = "잘 못 알아들었어요. '엔진오일 언제 갈아?'처럼 물어봐 주세요."
         assertEquals(expected, ask("오늘 날씨 좋다"))

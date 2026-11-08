@@ -7,6 +7,8 @@
 
     <!-- Pleos Vehicle SDK: 조회용 퍼미션만 (CONTROL_CAR_* 선언 금지) -->
     <uses-permission android:name="pleos.car.permission.CAR_SAFETY" />
+    <!-- 경고등(telltale)·타이어 공기압 조회용. 읽기 전용 퍼미션이다. -->
+    <uses-permission android:name="pleos.car.permission.PRIVATE_CAR_SAFETY" />
     <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
     <uses-permission android:name="pleos.car.permission.CAR_WINDOWS" />
     <uses-permission android:name="pleos.car.permission.CAR_CLIMATE" />

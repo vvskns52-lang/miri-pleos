@@ -22,6 +22,7 @@ import com.chacare.domain.severeEvidence
 import com.chacare.domain.ShopVisit
 import com.chacare.domain.SignalState
 import com.chacare.domain.UsageStats
+import com.chacare.domain.WarningLight
 import com.chacare.domain.correctionFactor
 import com.chacare.domain.estimate
 import com.chacare.domain.specsFor
@@ -70,6 +71,14 @@ data class CustomRecord(
     val cost: Long? = null,
 )
 
+/** 경고등이 켜진 때. 정비소에서 "언제부터 켜졌는지" 답할 수 있게 남긴다. */
+@Serializable
+data class WarningEvent(
+    val light: WarningLight,
+    @Serializable(with = LocalDateSerializer::class) val date: LocalDate,
+    val odometerKm: Double,
+)
+
 /** [status]가 null이면 주기 없이 기록만 하는 항목. */
 data class CustomEstimate(
     val part: CustomPart,
@@ -108,7 +117,11 @@ private data class StoreData(
     val severeOff: Boolean = false,
     /** 음성으로 이미 알린 가혹 조건(바뀔 때만 다시 알린다). */
     val severeAnnounced: Set<SevereReason> = emptySet(),
+    /** 최근 것부터, 최대 [WARNING_LOG_MAX]개. */
+    val warningLog: List<WarningEvent> = emptyList(),
 )
+
+private const val WARNING_LOG_MAX = 50
 
 internal object LocalDateSerializer : KSerializer<LocalDate> {
     override val descriptor = PrimitiveSerialDescriptor("LocalDate", PrimitiveKind.LONG)
@@ -279,6 +292,14 @@ class MaintenanceRepository(private val file: File, private val today: () -> Loc
             CustomEstimate(p, life?.status, life?.remainingRatio, life?.remainingKm, life?.remainingMonths, last)
         }
     }
+
+    // --- 경고등 ---
+
+    suspend fun logWarnings(lights: List<WarningLight>, date: LocalDate, odometerKm: Double) = update { s ->
+        s.copy(warningLog = (lights.map { WarningEvent(it, date, odometerKm) } + s.warningLog).take(WARNING_LOG_MAX))
+    }
+
+    fun warningLog(): Flow<List<WarningEvent>> = state.map { it.warningLog }
 
     // --- 정비 비용 ---
 

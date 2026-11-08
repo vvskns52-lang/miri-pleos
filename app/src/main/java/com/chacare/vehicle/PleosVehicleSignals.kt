@@ -18,6 +18,11 @@ import ai.pleos.playground.vehicle.listener.LowWasherFluidWaringListener
 import ai.pleos.playground.vehicle.listener.OilLevelStateListener
 import ai.pleos.playground.vehicle.listener.TirePressureListener
 import ai.pleos.playground.vehicle.listener.WiperStateListener
+import ai.pleos.playground.vehicle.listener.TelltaleInfoListener
+import ai.pleos.playground.vehicle.api.model.telltale.Telltales
+import ai.pleos.playground.vehicle.constant.telltale.TelltaleState
+import ai.pleos.playground.vehicle.constant.telltale.TelltaleType
+import com.chacare.domain.WarningLight
 import android.content.Context
 import android.util.Log
 import com.chacare.domain.Powertrain
@@ -27,6 +32,25 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 
 private const val TAG = "ChaCare"
+
+/** 차량 경고등 종류 → 앱이 안내하는 경고등. 정비와 관계없는 표시등(전조등, 방향지시 등)은 뺀다. */
+private val TELLTALE_LIGHTS = mapOf(
+    TelltaleType.ENGINE_OIL_PRESSURE to WarningLight.OIL_PRESSURE,
+    TelltaleType.ENGINE_TEMPERATURE to WarningLight.ENGINE_TEMP,
+    TelltaleType.PARKING_BRAKE to WarningLight.BRAKE,
+    TelltaleType.LOW_VOLT_BATTERY to WarningLight.CHARGING,
+    TelltaleType.ENGINE to WarningLight.CHECK_ENGINE,
+    TelltaleType.AIRBAG to WarningLight.AIRBAG,
+    TelltaleType.MDPS to WarningLight.STEERING,
+    TelltaleType.ABS to WarningLight.ABS,
+    TelltaleType.ESC to WarningLight.ESC,
+    TelltaleType.ELECTRONIC_PARKING_BRAKE to WarningLight.EPB,
+    TelltaleType.EV_SYSTEM to WarningLight.EV_SYSTEM,
+    TelltaleType.HEV_SYSTEM to WarningLight.HYBRID_SYSTEM,
+    TelltaleType.TPMS to WarningLight.TPMS,
+    TelltaleType.PARTICLE_FILTER to WarningLight.DPF,
+    TelltaleType.MASTER_WARNING to WarningLight.MASTER,
+)
 
 /**
  * Pleos Vehicle SDK로 읽는 실제 차량 값. 콜백은 IPC 스레드에서 오므로 Flow로만 넘긴다.
@@ -41,6 +65,7 @@ class PleosVehicleSignals(context: Context) : VehicleSignals {
     override val hvacOn = MutableStateFlow(false)
     override val parked = MutableStateFlow(true)
     override val sensors = MutableSharedFlow<Pair<SensorKind, SignalState>>(extraBufferCapacity = 64)
+    override val warningLights = MutableStateFlow<Set<WarningLight>>(emptySet())
 
     private val front = WindowArea(WindowValue.FRONT_WINDSHIELD)
     private val driverSeat = SeatArea(SeatValue.ROW_1_LEFT)
@@ -85,6 +110,20 @@ class PleosVehicleSignals(context: Context) : VehicleSignals {
             override fun onTirePressureUpdated(pressure: Float?) = onTirePressure(wheel, pressure)
             override fun onFailed(e: Exception) = failed("tire")(e)
         }
+    }
+
+    private val telltaleListener = object : TelltaleInfoListener {
+        override fun onTelltaleInfoUpdated(telltales: Telltales?) = onTelltales(telltales)
+        override fun onFailed(e: Exception) = failed("telltale")(e)
+    }
+
+    private fun onTelltales(info: Telltales?) {
+        warningLights.value = info?.telltales.orEmpty().mapNotNull { t ->
+            val light = TELLTALE_LIGHTS[t.type] ?: return@mapNotNull null
+            // ESC는 미끄러짐을 잡는 동안 깜빡이는 게 정상이라 계속 켜져 있을 때만 경고로 본다.
+            val lit = t.state == TelltaleState.ON || (t.state == TelltaleState.BLINK && light != WarningLight.ESC)
+            light.takeIf { lit }
+        }.toSet()
     }
 
     private fun levelListener(kind: SensorKind) = object : OilLevelStateListener {
@@ -158,6 +197,12 @@ class PleosVehicleSignals(context: Context) : VehicleSignals {
                 registerLowWasherFluidWaringState(washerListener)
             }
         }
+        safe("telltale") {
+            with(vehicle.getSafety()) {
+                getTelltalesInfo({ onTelltales(it) }, failed("telltale"))
+                registerTelltales(telltaleListener)
+            }
+        }
         safe("tire") {
             val tire = vehicle.getTire()
             for ((wheel, listener) in tireListeners) {
@@ -181,6 +226,7 @@ class PleosVehicleSignals(context: Context) : VehicleSignals {
                 unregisterBrakeFluidLevelState(brakeFluidListener)
                 unregisterTransmissionOilLevelState(transmissionOilListener)
                 unregisterLowWasherFluidWaringState(washerListener)
+                unregisterTelltales(telltaleListener)
             }
             tireListeners.forEach { (wheel, l) -> vehicle.getTire().unregisterTirePressure(wheel, l) }
         }

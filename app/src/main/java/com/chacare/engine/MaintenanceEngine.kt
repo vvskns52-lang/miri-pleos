@@ -16,6 +16,11 @@ import com.chacare.domain.SensorKind
 import com.chacare.domain.Shop
 import com.chacare.domain.ShopVisitDetector
 import com.chacare.domain.UsageStats
+import com.chacare.domain.WarningLight
+import com.chacare.domain.activeWarnings
+import com.chacare.domain.announceWarning
+import com.chacare.domain.newlyLit
+import kotlinx.coroutines.flow.combine
 import com.chacare.data.CustomEstimate
 import com.chacare.domain.CustomAnswer
 import com.chacare.domain.answerQuery
@@ -59,9 +64,14 @@ class MaintenanceEngine(
     private val repo: MaintenanceRepository,
     private val shops: List<Shop>,
     private val qaState: MutableStateFlow<QaState?> = MutableStateFlow(null),
+    private val warningState: MutableStateFlow<List<WarningLight>> = MutableStateFlow(emptyList()),
     private val clock: () -> Long,
 ) {
     val qa: StateFlow<QaState?> = qaState
+    /** 지금 안내 중인 경고등(급한 순). */
+    val warnings: StateFlow<List<WarningLight>> = warningState
+    private var announcedWarnings = emptySet<WarningLight>()
+    private var warningJob: Job? = null
     private var job: Job? = null
     private var promptJob: Job? = null
     private var promptsDoneThisCycle = false
@@ -129,6 +139,11 @@ class MaintenanceEngine(
                     if (visit != null) repo.setPendingShopVisit(visit)
                 }
             }
+            launch {
+                combine(vehicle.warningLights, vehicle.parked) { lit, parked -> activeWarnings(lit, parked) }
+                    .distinctUntilChanged()
+                    .collect { active -> onWarnings(active, this@launch) }
+            }
             workScope = this
             launch {
                 vehicle.parked.distinctUntilChanged().collect { parked ->
@@ -171,9 +186,32 @@ class MaintenanceEngine(
                 voice.listen()
             }
             val customs = repo.customEstimates().first().map { CustomAnswer(it.part.name, customPhrase(it)) }
-            val answer = answerQuery(question, repo.estimates().first(), repo.specs().first(), customs, repo.costs().first())
+            val answer = answerQuery(
+                question, repo.estimates().first(), repo.specs().first(), customs, repo.costs().first(), warningState.value,
+            )
             qaState.value = QaState.Answered(question, answer)
             voice.speak(answer)
+        }
+    }
+
+    /**
+     * 새로 켜진 경고등은 주행 중이어도 바로 말한다(화면을 보지 않아도 되게). 정비 안내가 진행 중이면 끊고 먼저 말한다.
+     * 꺼진 경고등은 알린 목록에서 빼서, 다시 켜지면 다시 알린다.
+     */
+    private suspend fun onWarnings(active: List<WarningLight>, scope: CoroutineScope) {
+        warningState.value = active
+        val fresh = newlyLit(active, announcedWarnings)
+        announcedWarnings = announcedWarnings.intersect(active.toSet()) + fresh
+        if (fresh.isEmpty()) return
+        repo.logWarnings(fresh, today(), repo.lastOdometer() ?: 0.0)
+        if (promptJob?.isActive == true) {
+            promptJob?.cancel()
+            voice.stop()
+        }
+        val previous = warningJob
+        warningJob = scope.launch {
+            previous?.join()
+            fresh.forEach { voice.speak(announceWarning(it)) }
         }
     }
 
@@ -215,6 +253,7 @@ class MaintenanceEngine(
         }
         if (promptsDoneThisCycle || promptJob?.isActive == true) return
         promptJob = scope.launch {
+            warningJob?.join() // 경고등 안내를 다 말한 뒤에 정비 안내를 시작한다
             runPrompts()
             promptsDoneThisCycle = true
         }

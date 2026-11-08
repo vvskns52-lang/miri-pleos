@@ -9,6 +9,8 @@ import com.chacare.domain.SensorKind
 import com.chacare.domain.Shop
 import com.chacare.domain.SignalState
 import com.chacare.domain.UsageStats
+import com.chacare.domain.WarningLight
+import com.chacare.domain.announceWarning
 import com.chacare.location.DemoLocationSource
 import com.chacare.vehicle.DemoVehicleSignals
 import com.chacare.voice.FakeVoiceIO
@@ -205,6 +207,30 @@ class MaintenanceEngineTest {
         val e = engine(voice)
         e.ask("블랙박스 언제 바꿨지"); advanceUntilIdle()
         assertEquals(listOf("블랙박스는 마지막으로 2026-05-01에 교체했어요."), voice.spoken)
+    }
+
+    @Test fun warningLightSpokenWhileDrivingOnceAndLogged() = runTest {
+        val voice = FakeVoiceIO(emptyList())
+        val e = engine(voice)
+        vehicle.setWarnings(setOf(WarningLight.TPMS)); advanceUntilIdle()
+        vehicle.setWarnings(setOf(WarningLight.TPMS, WarningLight.CHECK_ENGINE)); advanceUntilIdle()
+        assertEquals(listOf(announceWarning(WarningLight.TPMS), announceWarning(WarningLight.CHECK_ENGINE)), voice.spoken)
+        assertEquals(listOf(WarningLight.CHECK_ENGINE, WarningLight.TPMS), e.warnings.value)
+        assertEquals(listOf(WarningLight.CHECK_ENGINE, WarningLight.TPMS), repo.warningLog().first().map { it.light })
+        // 꺼졌다 다시 켜지면 다시 알린다.
+        vehicle.setWarnings(emptySet()); advanceUntilIdle()
+        vehicle.setWarnings(setOf(WarningLight.TPMS)); advanceUntilIdle()
+        assertEquals(3, voice.spoken.size)
+    }
+
+    @Test fun brakeLightInParkIsNotAnnounced() = runTest {
+        val voice = FakeVoiceIO(emptyList())
+        engine(voice)
+        vehicle.setParked(true); advanceUntilIdle()
+        vehicle.setWarnings(setOf(WarningLight.BRAKE)); advanceUntilIdle()
+        assertTrue(voice.spoken.none { it.startsWith("브레이크 경고등") })
+        vehicle.setParked(false); advanceUntilIdle()
+        assertEquals(announceWarning(WarningLight.BRAKE), voice.spoken.last())
     }
 
     @Test fun washerRecoveredRecordsRefill() = runTest {

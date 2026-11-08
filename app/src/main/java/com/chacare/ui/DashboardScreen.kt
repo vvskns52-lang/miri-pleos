@@ -43,6 +43,7 @@ import com.chacare.domain.LifeStatus
 import com.chacare.domain.Part
 import com.chacare.domain.Powertrain
 import com.chacare.domain.VehicleModel
+import com.chacare.domain.WarningLight
 import com.chacare.domain.bundleOf
 import com.chacare.domain.displayKm
 import com.chacare.domain.displayMonths
@@ -63,6 +64,8 @@ fun DashboardScreen(
     onChangeVehicle: () -> Unit,
     onAsk: () -> Unit,
     onCosts: () -> Unit,
+    warnings: List<WarningLight>,
+    onWarnings: () -> Unit,
     onSecretTap: () -> Unit,
 ) {
     var taps by remember { mutableIntStateOf(0) }
@@ -78,6 +81,10 @@ fun DashboardScreen(
                 Text(summary(estimates, customs), color = TextSecondary, fontSize = 20.sp)
             }
             Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = onWarnings, enabled = parked, shape = RoundedCornerShape(50)) {
+                Text("경고등", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.width(12.dp))
             OutlinedButton(onClick = onCosts, enabled = parked, shape = RoundedCornerShape(50)) {
                 Text("정비 비용", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
             }
@@ -114,6 +121,9 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             // 배너도 목록과 함께 스크롤되도록 한 줄 전체를 차지하는 항목으로 넣는다.
+            if (warnings.isNotEmpty()) {
+                item(key = "warnings", span = { GridItemSpan(maxLineSpan) }) { WarningBanner(warnings, parked, onWarnings) }
+            }
             if (severe != null && severe.detected.isNotEmpty()) {
                 item(key = "severe", span = { GridItemSpan(maxLineSpan) }) { SevereBanner(severe, parked, onSevereOff) }
             }

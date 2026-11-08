@@ -4,6 +4,7 @@ import android.app.Application
 import com.chacare.data.MaintenanceRepository
 import com.chacare.engine.MaintenanceEngine
 import com.chacare.engine.QaState
+import com.chacare.domain.WarningLight
 import com.chacare.location.DEMO_HOME_LAT
 import com.chacare.location.DEMO_HOME_LON
 import com.chacare.location.DEMO_SHOPS
@@ -88,7 +89,7 @@ class AppGraph(private val app: Application) {
         val vehicle = if (demo) demoVehicle else realVehicle
         val location = if (demo) demoLocation else realLocation
         currentVehicle.value = vehicle
-        engine = MaintenanceEngine(vehicle, location, voice, repo, DEMO_SHOPS, qaState, clock).also { it.start(engineScope) }
+        engine = MaintenanceEngine(vehicle, location, voice, repo, DEMO_SHOPS, qaState, warningState, clock).also { it.start(engineScope) }
     }
 
     // --- 물어보기 ---
@@ -96,6 +97,11 @@ class AppGraph(private val app: Application) {
     /** 엔진이 바뀌어도(데모 전환) 화면이 같은 상태를 보도록 여기서 들고 있는다. */
     private val qaState = MutableStateFlow<QaState?>(null)
     val qa: StateFlow<QaState?> = qaState
+
+    // --- 경고등 ---
+
+    private val warningState = MutableStateFlow<List<WarningLight>>(emptyList())
+    val warnings: StateFlow<List<WarningLight>> = warningState
 
     fun ask(typed: String? = null) {
         engine?.ask(typed)

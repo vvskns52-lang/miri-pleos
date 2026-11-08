@@ -63,6 +63,7 @@ private sealed interface Screen {
     data object CustomAdd : Screen
     data class CustomDetail(val id: Long) : Screen
     data object Costs : Screen
+    data object Warnings : Screen
 }
 
 class MainActivity : ComponentActivity() {
@@ -117,6 +118,8 @@ private fun App(graph: AppGraph) {
     var screen by remember { mutableStateOf<Screen>(Screen.Dashboard) }
 
     val qa by graph.qa.collectAsState()
+    val warnings by graph.warnings.collectAsState()
+    val demoLit by graph.demoVehicle.warningLights.collectAsState()
 
     LaunchedEffect(Unit) { onboarded = repo.onboarded() }
 
@@ -141,8 +144,14 @@ private fun App(graph: AppGraph) {
                     onChangeVehicle = { screen = Screen.Vehicle },
                     onAsk = { graph.ask() },
                     onCosts = { screen = Screen.Costs },
+                    warnings = warnings,
+                    onWarnings = { screen = Screen.Warnings },
                     onSecretTap = { screen = Screen.Demo },
                 )
+                Screen.Warnings -> {
+                    val log by remember { repo.warningLog() }.collectAsState(initial = emptyList())
+                    WarningGuideScreen(warnings, log, parked, onBack = { screen = Screen.Dashboard }, onOpenPart = { screen = Screen.Detail(it) })
+                }
                 Screen.Costs -> {
                     val costs by remember { repo.costs() }.collectAsState(initial = null)
                     CostScreen(costs, parked, onBack = { screen = Screen.Dashboard })
@@ -192,7 +201,7 @@ private fun App(graph: AppGraph) {
                         onDelete = { id -> scope.launch { repo.deleteRecord(id) } },
                     )
                 }
-                Screen.Demo -> DemoPanelScreen(demoMode, parked, demoActions(graph, scope), onBack = { screen = Screen.Dashboard })
+                Screen.Demo -> DemoPanelScreen(demoMode, parked, demoLit, demoActions(graph, scope), onBack = { screen = Screen.Dashboard })
             }
         }
     }
@@ -274,5 +283,7 @@ private fun demoActions(graph: AppGraph, scope: CoroutineScope): DemoActions {
         passTime = graph::advanceTime,
         setParked = car::setParked,
         newIgnition = graph::newIgnitionCycle,
+        toggleWarning = car::toggleWarning,
+        clearWarnings = { car.setWarnings(emptySet()) },
     )
 }
