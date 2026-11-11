@@ -92,10 +92,11 @@ private fun AmountRow(label: String, won: Long) {
     }
 }
 
-/** 막대 위 금액은 짧게: 8만, 15.5만. */
+/** 막대 위 금액은 짧게: 8만, 7.5만, 15만(10만 이상은 반올림해 정수로, 좁은 막대 위에서 줄이 넘어가지 않게). */
 private fun shortWon(won: Long): String = when {
     won == 0L -> ""
     won < 10_000 -> "%,d".format(won)
+    won >= 100_000 -> "${(won + 5_000) / 10_000}만"
     won % 10_000 == 0L -> "${won / 10_000}만"
     else -> "%.1f만".format(won / 10_000.0)
 }
@@ -106,7 +107,7 @@ private fun MonthlyBars(monthly: List<Pair<YearMonth, Long>>) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
         monthly.forEachIndexed { i, (month, won) ->
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(shortWon(won), fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
+                Text(shortWon(won), fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
                 Spacer(Modifier.height(4.dp))
                 Box(
                     Modifier.fillMaxWidth().height(BAR_MAX * (won.toFloat() / max)).clip(RoundedCornerShape(6.dp))

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 디버그 빌드 전용: 시연 영상 녹화 때 adb로 데모 차량 신호를 넣는다. release에는 들어가지 않는다. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".DemoCommandReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.chacare.DEMO" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

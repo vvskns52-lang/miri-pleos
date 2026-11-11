@@ -18,6 +18,8 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -119,7 +121,12 @@ fun DashboardScreen(
         }
         Spacer(Modifier.height(20.dp))
         val bundle = bundleOf(estimates)
+        val gridState = rememberLazyGridState()
+        // 맨 위에 경고등·가혹 조건 배너가 새로 생기면 목록이 그 아래 위치를 유지해 배너가 가려진다. 맨 위로 올려 보여 준다.
+        val topBanner = warnings.firstOrNull()?.name ?: severe?.detected?.takeIf { it.isNotEmpty() && !severe.off }?.let { "severe" }
+        LaunchedEffect(topBanner) { if (topBanner != null) gridState.animateScrollToItem(0) }
         LazyVerticalGrid(
+            state = gridState,
             columns = GridCells.Adaptive(minSize = 400.dp),
             horizontalArrangement = Arrangement.spacedBy(20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
